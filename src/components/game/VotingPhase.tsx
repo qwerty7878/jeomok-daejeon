@@ -38,6 +38,8 @@ export function VotingPhase({ state, sessionId, onTick, mySubmissionId }: Props)
 
   async function vote(submissionId: string) {
     if (voting || voted) return;
+    // 낙관적 업데이트 — 클릭 즉시 선택 표시
+    setVoted(submissionId);
     setVoting(true);
     try {
       const res = await fetch(`/api/rooms/${state.room.code}/vote`, {
@@ -49,10 +51,10 @@ export function VotingPhase({ state, sessionId, onTick, mySubmissionId }: Props)
         body: JSON.stringify({ round: state.room.round, submissionId }),
       });
       if (res.ok) {
-        setVoted(submissionId);
         showToast("투표 완료!");
       } else {
         const data = (await res.json()) as { error: { code: string; message: string } };
+        setVoted(null); // 실패 시 되돌리기
         if (data.error?.code === "CANNOT_VOTE_SELF") {
           showToast("내 제목에는 투표할 수 없습니다");
         } else {
@@ -137,14 +139,14 @@ export function VotingPhase({ state, sessionId, onTick, mySubmissionId }: Props)
                 disabled={disabled}
                 onClick={() => vote(sub.id)}
                 className={cn(
-                  "group relative flex items-center gap-3 rounded-2xl border-2 p-4 text-left transition",
+                  "group relative flex items-center gap-3 rounded-2xl border-2 p-4 text-left transition-all duration-150",
                   chosen
-                    ? "border-primary bg-primary/10"
+                    ? "border-primary bg-primary/10 scale-[1.02] shadow-md shadow-primary/20"
                     : (!is1v1 && isMine)
                     ? "cursor-not-allowed border-dashed border-border bg-muted/40"
                     : voted !== null
-                    ? "border-border bg-card opacity-60"
-                    : "border-border bg-card hover:-translate-y-0.5 hover:border-primary hover:shadow-md"
+                    ? "border-border bg-card opacity-50"
+                    : "border-border bg-card hover:-translate-y-0.5 hover:border-primary hover:shadow-md active:scale-95"
                 )}
               >
                 <span

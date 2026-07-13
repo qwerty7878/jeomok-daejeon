@@ -44,7 +44,9 @@ export function WritingPhase({ state, sessionId, onTick, onSubmitted }: Props) {
 
   async function submit() {
     if (!text.trim() || submitting || !state.me.alive) return;
+    // 낙관적 업데이트 — 클릭 즉시 제출 완료 표시
     setSubmitting(true);
+    setSubmitted(true);
     try {
       const res = await fetch(`/api/rooms/${state.room.code}/submit`, {
         method: "POST",
@@ -56,11 +58,11 @@ export function WritingPhase({ state, sessionId, onTick, onSubmitted }: Props) {
       });
       if (res.ok) {
         const data = (await res.json()) as { submitted: boolean; submissionId: string | null };
-        setSubmitted(true);
         if (data.submissionId) onSubmitted?.(data.submissionId);
         showToast("제출 완료!");
       } else {
         const data = (await res.json()) as { error: { message: string } };
+        setSubmitted(false); // 실패 시 되돌리기
         showToast(data.error?.message ?? "제출 실패");
       }
     } finally {
