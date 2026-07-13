@@ -16,10 +16,70 @@ const gothic = Gothic_A1({
   display: "swap",
 });
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://jeomok-daejeon.vercel.app";
+
 export const metadata: Metadata = {
-  title: "제목대전",
+  metadataBase: new URL(APP_URL),
+  title: {
+    default: "제목대전",
+    template: "%s | 제목대전",
+  },
   description:
-    "사진에 제목을 붙이고, 가장 웃긴 제목에 투표하세요. 실시간 멀티플레이 파티 게임.",
+    "사진 한 장에 제목을 붙이고, 가장 웃긴 제목에 투표하세요. 최하위 득표자가 목숨을 잃는 실시간 멀티플레이 파티 게임.",
+  keywords: ["제목대전", "파티게임", "멀티플레이", "실시간게임", "웹게임", "친구게임", "제목짓기", "투표게임"],
+  authors: [{ name: "제목대전" }],
+  creator: "제목대전",
+  openGraph: {
+    type: "website",
+    locale: "ko_KR",
+    url: APP_URL,
+    siteName: "제목대전",
+    title: "제목대전 — 사진에 제목을 붙이고 투표하는 파티게임",
+    description:
+      "사진 한 장에 제목을 붙이고, 가장 웃긴 제목에 투표하세요. 최하위 득표자가 목숨을 잃는 실시간 멀티플레이 파티 게임.",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "제목대전 — 실시간 제목 짓기 파티 게임",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "제목대전 — 사진에 제목을 붙이고 투표하는 파티게임",
+    description:
+      "사진 한 장에 제목을 붙이고, 가장 웃긴 제목에 투표하세요. 실시간 멀티플레이 파티 게임.",
+    images: ["/opengraph-image"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  alternates: {
+    canonical: APP_URL,
+  },
+};
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  name: "제목대전",
+  url: APP_URL,
+  description:
+    "사진 한 장에 제목을 붙이고, 가장 웃긴 제목에 투표하세요. 최하위 득표자가 목숨을 잃는 실시간 멀티플레이 파티 게임.",
+  applicationCategory: "GameApplication",
+  operatingSystem: "Web",
+  inLanguage: "ko",
+  isAccessibleForFree: true,
+  offers: { "@type": "Offer", price: "0", priceCurrency: "KRW" },
 };
 
 export default function RootLayout({
@@ -32,6 +92,12 @@ export default function RootLayout({
       lang="ko"
       className={`light ${gaegu.variable} ${gothic.variable}`}
     >
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      </head>
       <body className="min-h-dvh bg-background text-foreground antialiased">
         {children}
       </body>
