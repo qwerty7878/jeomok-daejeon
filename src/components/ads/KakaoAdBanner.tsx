@@ -18,7 +18,7 @@ export function KakaoAdBanner({ unit, width, height }: Props) {
         data-ad-height={String(height)}
       />
       <Script
-        src="//t1.daumcdn.net/kas/static/ba.min.js"
+        src="//t1.kakaocdn.net/kas/static/ba.min.js"
         strategy="afterInteractive"
       />
     </>
