@@ -14,7 +14,7 @@ export function AdBanner() {
   if (!useGoogle && !useKakao) return null;
 
   return (
-    <div className="flex min-h-[58px] w-full items-center justify-center overflow-hidden border-t border-foreground/10 bg-card py-1">
+    <div className="flex h-[60px] w-full shrink-0 items-center justify-center overflow-hidden border-t-2 border-foreground/10 bg-muted/40">
       {useGoogle && (
         <div className="w-full max-w-[728px]">
           <GoogleAdBanner client={GOOGLE_CLIENT!} slot={GOOGLE_SLOT!} format="horizontal" />

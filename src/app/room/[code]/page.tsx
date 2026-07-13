@@ -17,6 +17,7 @@ import { Modal } from "@/components/ui/Modal";
 import { ReactionOverlay } from "@/components/ui/ReactionOverlay";
 import { cn } from "@/lib/utils";
 import { AdBanner } from "@/components/ads/AdBanner";
+import { AdColumn } from "@/components/ads/AdColumn";
 import type { RoomState } from "@/types/game";
 
 function JoinModal({
@@ -294,9 +295,15 @@ export default function RoomPage() {
       </header>
 
       {/* Desktop 3-panel layout */}
-      <div className="hidden lg:flex h-[calc(100dvh-3.5rem)] overflow-hidden max-w-6xl mx-auto w-full gap-3 px-3 py-3">
-        <aside className="w-56 shrink-0 h-full flex flex-col overflow-hidden">
-          <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="hidden lg:flex h-[calc(100dvh-3.5rem)] overflow-hidden w-full">
+        {/* 왼쪽 바깥 광고 컬럼 */}
+        <div className="hidden 2xl:block w-44 shrink-0 h-full overflow-hidden">
+          <AdColumn />
+        </div>
+
+        {/* 왼쪽 사이드바 — 참가자 */}
+        <aside className="w-56 shrink-0 h-full flex flex-col overflow-hidden py-3 pl-3">
+          <div className="flex-1 min-h-0 overflow-hidden rounded-2xl border-2 border-border bg-card">
             {state ? (
               <PlayerList
                 players={state.players}
@@ -314,16 +321,13 @@ export default function RoomPage() {
                     : undefined
                 }
               />
-            ) : (
-              <div className="h-full rounded-2xl border-2 border-border bg-card" />
-            )}
+            ) : null}
           </div>
-          <div className="shrink-0 overflow-hidden rounded-xl">
-            <AdBanner />
-          </div>
+          <AdBanner />
         </aside>
 
-        <main className="flex flex-1 flex-col overflow-hidden">
+        {/* 게임 센터 */}
+        <main className="flex flex-1 flex-col overflow-hidden px-3 py-3 min-w-0">
           <GameCenter
             state={state}
             sessionId={sessionId}
@@ -336,8 +340,9 @@ export default function RoomPage() {
           />
         </main>
 
-        <aside className="w-64 shrink-0 h-full flex flex-col overflow-hidden">
-          <div className="flex-1 min-h-0 overflow-hidden">
+        {/* 오른쪽 사이드바 — 채팅 */}
+        <aside className="w-64 shrink-0 h-full flex flex-col overflow-hidden py-3 pr-3">
+          <div className="flex-1 min-h-0 overflow-hidden rounded-2xl border-2 border-border bg-card">
             <ChatPanel
               messages={chat}
               sessionId={sessionId}
@@ -347,10 +352,13 @@ export default function RoomPage() {
               mySubmitted={state?.me.submitted ?? false}
             />
           </div>
-          <div className="shrink-0 overflow-hidden rounded-xl">
-            <AdBanner />
-          </div>
+          <AdBanner />
         </aside>
+
+        {/* 오른쪽 바깥 광고 컬럼 */}
+        <div className="hidden 2xl:block w-44 shrink-0 h-full overflow-hidden">
+          <AdColumn />
+        </div>
       </div>
 
       {/* Mobile tab layout */}
