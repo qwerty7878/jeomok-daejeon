@@ -295,7 +295,7 @@ export default function RoomPage() {
 
       {/* Desktop 3-panel layout */}
       <div className="hidden lg:flex h-[calc(100dvh-3.5rem)] overflow-hidden max-w-6xl mx-auto w-full gap-3 px-3 py-3">
-        <aside className="w-56 shrink-0 h-full flex flex-col gap-2 overflow-hidden">
+        <aside className="w-56 shrink-0 h-full flex flex-col overflow-hidden">
           <div className="flex-1 min-h-0 overflow-hidden">
             {state ? (
               <PlayerList
@@ -336,7 +336,7 @@ export default function RoomPage() {
           />
         </main>
 
-        <aside className="w-64 shrink-0 h-full flex flex-col gap-2 overflow-hidden">
+        <aside className="w-64 shrink-0 h-full flex flex-col overflow-hidden">
           <div className="flex-1 min-h-0 overflow-hidden">
             <ChatPanel
               messages={chat}

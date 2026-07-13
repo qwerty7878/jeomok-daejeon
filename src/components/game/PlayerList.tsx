@@ -29,13 +29,13 @@ export function PlayerList({
 
   return (
     <div className="flex h-full flex-col rounded-2xl border-2 border-border bg-card">
-      <div className="flex items-center justify-between border-b-2 border-border px-4 py-3">
-        <h2 className="font-display text-lg">참가자</h2>
-        <span className="rounded-full bg-muted px-2.5 py-0.5 text-sm font-bold text-muted-foreground">
+      <div className="flex items-center justify-between border-b-2 border-border px-3 py-2">
+        <h2 className="font-display text-base">참가자</h2>
+        <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold text-muted-foreground">
           {activeCount}/{total}
         </span>
       </div>
-      <ul className="flex-1 space-y-1.5 overflow-y-auto p-3">
+      <ul className="flex-1 space-y-1 overflow-y-auto p-2">
         {sorted.map((p) => {
           const isMe = p.id === myPlayerId;
           const submitted = submittedIds?.has(p.id);
@@ -44,7 +44,7 @@ export function PlayerList({
             <li
               key={p.id}
               className={cn(
-                "flex items-center gap-2 rounded-xl border-2 px-3 py-2 transition",
+                "flex items-center gap-2 rounded-xl border-2 px-2.5 py-1.5 transition",
                 !p.alive
                   ? "border-transparent bg-muted/50 opacity-60"
                   : "border-border bg-background",

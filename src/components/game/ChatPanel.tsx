@@ -73,10 +73,10 @@ export function ChatPanel({
 
   return (
     <div className="flex h-full flex-col rounded-2xl border-2 border-border bg-card">
-      <div className="border-b border-border px-3 py-2">
-        <h2 className="font-display text-base">채팅</h2>
+      <div className="border-b border-border px-3 py-1.5">
+        <h2 className="font-display text-sm">채팅</h2>
       </div>
-      <div className="flex-1 space-y-1.5 overflow-y-auto p-2.5">
+      <div className="flex-1 space-y-1 overflow-y-auto p-2">
         {messages.length === 0 && (
           <p className="py-6 text-center text-sm text-muted-foreground">
             아직 대화가 없어요
