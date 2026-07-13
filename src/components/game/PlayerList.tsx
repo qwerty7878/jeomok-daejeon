@@ -28,7 +28,7 @@ export function PlayerList({
   const total = players.length;
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col rounded-2xl bg-card">
       <div className="flex items-center justify-between border-b-2 border-border px-3 py-2">
         <h2 className="font-display text-base">참가자</h2>
         <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold text-muted-foreground">

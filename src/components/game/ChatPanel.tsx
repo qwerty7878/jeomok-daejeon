@@ -72,7 +72,7 @@ export function ChatPanel({
   }
 
   return (
-    <div className="flex h-full flex-col bg-card">
+    <div className="flex h-full flex-col rounded-2xl bg-card">
       <div className="border-b border-border px-3 py-1.5">
         <h2 className="font-display text-sm">채팅</h2>
       </div>

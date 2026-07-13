@@ -294,16 +294,23 @@ export default function RoomPage() {
         </div>
       </header>
 
-      {/* Desktop 3-panel layout */}
-      <div className="hidden lg:flex h-[calc(100dvh-3.5rem)] overflow-hidden w-full">
-        {/* 왼쪽 바깥 광고 컬럼 */}
-        <div className="hidden 2xl:block w-44 shrink-0 h-full overflow-hidden">
+      {/* 바깥 광고 컬럼 — fixed, 레이아웃 영향 없음 */}
+      <div className="hidden 2xl:flex fixed left-0 top-14 h-[calc(100dvh-3.5rem)] w-40 flex-col items-center pt-4 px-2 pointer-events-none z-30">
+        <div className="pointer-events-auto">
           <AdColumn />
         </div>
+      </div>
+      <div className="hidden 2xl:flex fixed right-0 top-14 h-[calc(100dvh-3.5rem)] w-40 flex-col items-center pt-4 px-2 pointer-events-none z-30">
+        <div className="pointer-events-auto">
+          <AdColumn />
+        </div>
+      </div>
 
-        {/* 왼쪽 사이드바 — 참가자 */}
-        <aside className="w-56 shrink-0 h-full flex flex-col overflow-hidden py-3 pl-3">
-          <div className="flex-1 min-h-0 overflow-hidden rounded-2xl border-2 border-border bg-card">
+      {/* Desktop 3-panel layout — 원래 너비 유지 */}
+      <div className="hidden lg:flex flex-col h-[calc(100dvh-3.5rem)] overflow-hidden max-w-6xl mx-auto w-full">
+        <div className="flex flex-1 gap-3 px-3 pt-3 overflow-hidden min-h-0">
+          {/* 왼쪽 사이드바 — 참가자 */}
+          <aside className="w-56 shrink-0 h-full overflow-hidden rounded-2xl border-2 border-border bg-card">
             {state ? (
               <PlayerList
                 players={state.players}
@@ -321,28 +328,27 @@ export default function RoomPage() {
                     : undefined
                 }
               />
-            ) : null}
-          </div>
-          <AdBanner />
-        </aside>
+            ) : (
+              <div className="h-full" />
+            )}
+          </aside>
 
-        {/* 게임 센터 */}
-        <main className="flex flex-1 flex-col overflow-hidden px-3 py-3 min-w-0">
-          <GameCenter
-            state={state}
-            sessionId={sessionId}
-            sendTick={sendTick}
-            sendForceTick={sendForceTick}
-            gameOver={gameOver}
-            mySubmissionId={mySubmissionId}
-            onSubmitted={(id) => handleSubmitted(state?.room.round ?? 0, id)}
-            skipReadyIds={(state as unknown as { _skipReadyIds?: string[] } | null)?._skipReadyIds ?? []}
-          />
-        </main>
+          {/* 게임 센터 */}
+          <main className="flex flex-1 flex-col overflow-hidden min-w-0">
+            <GameCenter
+              state={state}
+              sessionId={sessionId}
+              sendTick={sendTick}
+              sendForceTick={sendForceTick}
+              gameOver={gameOver}
+              mySubmissionId={mySubmissionId}
+              onSubmitted={(id) => handleSubmitted(state?.room.round ?? 0, id)}
+              skipReadyIds={(state as unknown as { _skipReadyIds?: string[] } | null)?._skipReadyIds ?? []}
+            />
+          </main>
 
-        {/* 오른쪽 사이드바 — 채팅 */}
-        <aside className="w-64 shrink-0 h-full flex flex-col overflow-hidden py-3 pr-3">
-          <div className="flex-1 min-h-0 overflow-hidden rounded-2xl border-2 border-border bg-card">
+          {/* 오른쪽 사이드바 — 채팅 */}
+          <aside className="w-64 shrink-0 h-full overflow-hidden rounded-2xl border-2 border-border bg-card">
             <ChatPanel
               messages={chat}
               sessionId={sessionId}
@@ -351,13 +357,12 @@ export default function RoomPage() {
               myAlive={state?.me.alive ?? true}
               mySubmitted={state?.me.submitted ?? false}
             />
-          </div>
-          <AdBanner />
-        </aside>
+          </aside>
+        </div>
 
-        {/* 오른쪽 바깥 광고 컬럼 */}
-        <div className="hidden 2xl:block w-44 shrink-0 h-full overflow-hidden">
-          <AdColumn />
+        {/* 하단 광고 띠 — 3패널 전체 너비로 연결 */}
+        <div className="mx-3 mb-3">
+          <AdBanner />
         </div>
       </div>
 
