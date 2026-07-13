@@ -1,0 +1,122 @@
+# API 계약 (SSOT)
+
+> **이 문서가 진실이다.** 코드가 다르면 코드가 틀린 것이다.
+> 백엔드와 프론트는 서로의 코드가 아니라 이 문서를 본다.
+> 변경하려면 문서를 먼저 고치고 사용자 승인을 받는다.
+
+## 공통
+
+- 모든 요청 헤더: `x-session-id: {uuid}`
+- 에러 응답: `{ error: { code: string, message: string } }`
+- 에러 코드: `ROOM_NOT_FOUND` `ROOM_FULL` `WRONG_PASSWORD` `PASSWORD_COOLDOWN`
+  `NOT_HOST` `NOT_ENOUGH_PLAYERS` `DEADLINE_PASSED` `PHASE_MISMATCH`
+  `CANNOT_VOTE_SELF` `ALREADY_VOTED` `CHAT_LOCKED` `RATE_LIMITED`
+
+---
+
+## POST /api/rooms
+방 생성.
+
+```ts
+// req
+{ name: string, maxPlayers: 3..12, roomType: 'PUBLIC'|'LOCKED'|'SECRET',
+  password?: string /* 4자리, LOCKED 필수 */, lives: 2..5, writeSec: 30|45|60 }
+// res 201
+{ code: string /* 6자, 0 O 1 I 제외 */, inviteToken: string }
+```
+
+## GET /api/rooms
+로비 목록. `PUBLIC` + `LOCKED`만. **`SECRET` 제외.**
+
+```ts
+{ rooms: Array<{
+    code, name, roomType: 'PUBLIC'|'LOCKED',
+    playerCount, maxPlayers,
+    status: 'WAITING'|'PLAYING'|'FULL'
+  }> }
+```
+
+## POST /api/rooms/[code]/join
+입장. **토큰이 유효하면 비번 검증을 생략한다.**
+
+```ts
+// req
+{ nickname: string, password?: string, inviteToken?: string }
+// res 200
+{ playerId: string, asSpectator: boolean }
+// 400 WRONG_PASSWORD    → { attemptsLeft: number }
+// 429 PASSWORD_COOLDOWN → { retryAfterSec: number }   // 5회 실패 시 60초
+```
+
+## GET /api/rooms/[code]/state
+**전체 스냅샷. 재접속 복원의 전부.**
+
+```ts
+{
+  room: { code, name, roomType, phase, round, deadline /* ISO */,
+          lives, writeSec, maxPlayers, hostId },
+  players: Array<{ id, nickname, lives, alive, connected, isHost }>,
+  me: { playerId, alive, submitted: boolean, voted: boolean },
+  image?: { url },                       // WRITING 이후
+  submissions?: Array<{ id, title }>,    // VOTING 이후. 작성자 없음
+  result?: {                             // ROUND_RESULT 일 때만
+    ranking: Array<{ id, title, author, votes }>,
+    eliminated: string[]
+  }
+}
+```
+> ⚠️ `phase === 'WRITING'`이면 `submissions`를 **절대 포함하지 않는다.**
+
+## POST /api/rooms/[code]/start
+방장만. 생존 3명 미만이면 `NOT_ENOUGH_PLAYERS`.
+
+## POST /api/rooms/[code]/submit
+```ts
+{ round: number, title: string /* ≤40자 */ }
+```
+- 서버가 `phase === 'WRITING' && deadline > now()` 검증 → 아니면 `DEADLINE_PASSED`
+- 재제출 = 덮어쓰기 (`UNIQUE(room_id, round, player_id)`)
+- **제출 후 `제출수 === 생존자수`면 즉시 VOTING 조기 전이**
+
+## POST /api/rooms/[code]/vote
+```ts
+{ round: number, submissionId: string }
+```
+- `submission.player_id === me` → `CANNOT_VOTE_SELF`
+- **관전자도 투표 가능**
+- 전원 투표 시 즉시 ROUND_RESULT
+
+## POST /api/rooms/[code]/tick ★ 아키텍처의 심장
+`deadline` 도달 시 **아무 클라이언트나** 호출. **멱등.**
+
+```ts
+// req
+{ phase: string, round: number }   // 클라가 알고 있는 현재 상태
+// res 200
+{ advanced: boolean }              // 내가 전이 승자였나 (UI엔 영향 없음)
+```
+
+서버 동작:
+```sql
+UPDATE rooms SET phase = $next, deadline = now() + $dur
+ WHERE code = $1 AND phase = $2 AND round = $3 AND deadline <= now();
+-- 1 row → 전이 성공 → Broadcast 발행
+-- 0 row → 이미 누가 했음 → 조용히 무시 (에러 아님)
+```
+
+## POST /api/rooms/[code]/chat
+```ts
+{ message: string /* ≤100자 */ }
+```
+- **`phase === 'VOTING'` → `CHAT_LOCKED` (403).** ★ 서버에서 반드시 막는다
+- `phase === 'WRITING'` → 미제출자는 `CHAT_LOCKED`
+- Rate limit: 초당 1회
+
+## POST /api/rooms/[code]/sync
+Presence leave 감지 시 호출. 30초 유예 후 이탈 확정.
+
+## POST /api/rooms/[code]/rematch
+참가자 유지, 목숨 리셋, `WAITING` 복귀. **`한 판 더` 클릭률을 계측한다.**
+
+## GET /api/og/result/[resultId]
+1200×630 PNG. `@vercel/og`. **한글 폰트 임베드 필수** (Satori는 폰트를 직접 넣어야 함).
