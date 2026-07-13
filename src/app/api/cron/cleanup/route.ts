@@ -40,6 +40,17 @@ export async function GET(req: NextRequest) {
       )
     );
 
+    // 방 전용 커스텀 업로드 이미지는 이 경기에서만 쓰는 것 — 방과 함께 파일도 지운다.
+    // (images row는 rooms FK CASCADE로 같이 지워지지만, storage 객체는 별도로 지워야 함)
+    await Promise.all(
+      toDelete.map(async (code) => {
+        const { data: files } = await db.storage.from("room-images").list(code);
+        if (files && files.length > 0) {
+          await db.storage.from("room-images").remove(files.map((f) => `${code}/${f.name}`));
+        }
+      })
+    );
+
     await db.from("rooms").delete().in("code", toDelete);
   }
 

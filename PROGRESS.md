@@ -165,9 +165,38 @@
 - [ ] Supabase Realtime → Broadcast 채널 활성화
 - [ ] Vercel Pro (cron은 Pro 이상 필요)
 
+## 최근 변경 (2026-07-14 — 이미지 스토리지 정리 + 어드민 라이브러리 업로드)
+
+배경: `docs/spec.md`는 이미지 저장소로 Cloudflare R2를 지정하고 있었지만, 실제 커스텀 업로드(`#8`)는
+이미 Supabase Storage(`room-images` 버킷)로 구현돼 있었음 — 문서와 코드 불일치 발견. R2를 새로 들이는 대신
+Supabase Storage로 통일하기로 결정 ([ADR 002](docs/decisions/002-supabase-storage-not-r2.md)).
+
+- **커스텀 업로드 고아 파일 버그 수정**: `GET /api/cron/cleanup`이 방을 삭제할 때 `images` row는 FK CASCADE로
+  같이 지워지고 있었지만, `room-images` storage의 실제 파일은 안 지워지고 있었음. cleanup 시 `room-images/{code}/`
+  하위 파일을 함께 삭제하도록 수정 — "경기 전용, 서버에 영구 보관 안 함" 요구사항을 실제로 보장
+- **어드민 라이브러리 업로드 (AD-04) 신규 구현**: `POST/GET/PATCH /api/admin/images`. `library-images` 버킷
+  (공용, `room_id = NULL`, 영구 자산). `source`/`license`/`source_url` 필수 검증 (`docs/content.md` 출처표시 의무).
+  `/admin` 페이지에 "이미지" 탭 추가 — 업로드 폼 + 썸네일 그리드 + 활성/비활성 토글
+- **문서 갱신**: `docs/api.md`(신규 엔드포인트 4종), `docs/spec.md`(기술 스택 표, 파이프라인 다이어그램),
+  `docs/pages.md`(AD-04) — R2 → Supabase Storage로 정정. `docs/spec.md`의 "정기 작업 = pg_cron" 표기도
+  실제 구현(Vercel Cron)에 맞게 정정
+
+### 빌드 상태 (2026-07-14, 최신)
+- `pnpm typecheck` ✅ 에러 0
+- `pnpm lint` ⚠️ **미검증** — 이 개발 환경(로컬 Mac)에서 `eslint`가 `@typescript-eslint/eslint-plugin`
+  모듈 로딩 중 무한정 멈추는 문제 발생 (터미널에서 직접 실행해도 재현됨). `node -e "require(...)"` 단일 파일 테스트로
+  격리해봐도 동일하게 멈추고, `sample`로 스택 채집 시 커널 `read`/`kevent`에서 블록 — Node의 모듈 로딩 시점에
+  파일 I/O가 응답을 안 받는 상태. 프로세스 목록엔 서드파티 백신 없이 macOS 기본 `amfid`/`syspolicyd`/`XprotectService`만
+  있어 macOS 자체 코드 서명 검증(Gatekeeper) 관련 로컬 이슈로 추정 — 이 프로젝트 코드 문제는 아님
+  (`pnpm typecheck`는 같은 `node_modules`로 정상 통과).
+  변경된 파일(`src/app/api/cron/cleanup/route.ts`, `src/app/api/admin/images/route.ts`, `src/app/admin/page.tsx`)은
+  수동으로 리뷰해서 미사용 import·hooks 의존성 배열·JSX 이스케이프 등 흔한 lint 이슈는 없음을 확인함.
+  **다음 세션에서 `pnpm lint`가 정상 동작하면 반드시 재검증할 것.**
+
 ## 다음 작업
-- Supabase Storage 버킷 `room-images` 생성 (직접 이미지 업로드 기능 활성화)
-- 브라우저 실제 UI 검증 (팀전 모드, 이미지 업로드, 어드민 페이지)
+- `pnpm lint` 재시도 (재부팅 등으로 macOS Gatekeeper 이슈 해소된 뒤)
+- 브라우저 실제 UI 검증: `/admin` 이미지 탭 업로드 플로우, cleanup cron의 storage 삭제 동작
+- Vercel 배포 환경에 `library-images` 버킷 사전 생성 여부 확인 (코드는 없으면 자동 생성 시도함)
 - (선택) 로비 Realtime 채널로 방 목록 실시간 업데이트
 
 ## 열린 질문

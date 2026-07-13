@@ -31,9 +31,9 @@
 | 프론트+API | **Next.js 15 (App Router) on Vercel** | Hobby 무료 | Route Handler = 게임 로직 권위 |
 | 실시간 | **Supabase Realtime (Broadcast + Presence)** | **동시 200 연결**, 월 200만 메시지 | ★ 이게 진짜 병목 |
 | DB | **Supabase Postgres** | 500MB | 게임 상태 + 결과 |
-| 이미지 저장 | **Cloudflare R2** | 10GB, **egress 무료** | ★ S3는 트래픽 요금 폭탄. R2는 0원 |
-| 이미지 CDN | R2 Public Bucket + Custom Domain | 무료 | |
-| 정기 작업 | **Supabase pg_cron** | 무료 | Vercel Hobby Cron은 **하루 1회 제한** → 못 씀 |
+| 이미지 저장 | **Supabase Storage** | 1GB(무료 티어) | ★ [ADR 002](decisions/002-supabase-storage-not-r2.md) — R2 대신 채택. 별도 벤더/SDK 없이 기존 service_role 클라이언트 재사용 |
+| 이미지 CDN | Supabase Storage Public Bucket | 무료 티어 포함 | `room-images`(경기 전용, 방 삭제 시 같이 삭제) / `library-images`(공용, 영구) 버킷 분리 |
+| 정기 작업 | **Vercel Cron** (`/api/cron/cleanup`, 1일 1회) | Hobby 무료 | [ADR 001](decisions/001-serverless-lazy-transition.md)의 라운드 전이는 클라 트리거(tick) 유지. 유령 방 정리는 실제로 Vercel Cron으로 구현 |
 | 결과 카드 | `@vercel/og` (Satori) | 무료 | 서버리스 PNG 생성 |
 | 인증 | **없음** (익명 sessionId) | — | |
 
@@ -145,8 +145,8 @@ DELETE FROM rooms WHERE deadline < now() - interval '5 minutes';
         ↓
 [전처리]         1200px 리사이즈, WebP 변환, 워터마크 제거 없음(원본 PD)
         ↓
-[Cloudflare R2]  업로드 + images 테이블에 메타 등록
-                 (source, license, source_url ← 출처표시 의무 대비)
+[Supabase Storage]  업로드 (`/admin` → POST /api/admin/images) + images 테이블에 메타 등록
+                     (source, license, source_url ← 출처표시 의무 대비)
         ↓
 [자동 품질 측정]  득표 분산도 낮은 사진 = 안 웃긴 사진 → 자동 비활성 (§6.5)
 ```
@@ -411,7 +411,7 @@ CREATE TABLE votes (
 -- 이미지 (영구 자산)
 CREATE TABLE images (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  url         text NOT NULL,          -- R2 CDN URL
+  url         text NOT NULL,          -- Supabase Storage public URL (또는 외부 CDN 원본 URL)
   source      text NOT NULL,          -- 'MET' | 'SMITHSONIAN' | 'KOGL' | 'AI'
   license     text NOT NULL,          -- 'CC0' | 'PD' | 'KOGL-1' | 'OWN'
   source_url  text,                   -- 출처표시 의무 대비

@@ -1,6 +1,6 @@
 "use client";
-import { useState, useCallback, useEffect } from "react";
-import { Shield, CheckCircle, XCircle, Clock, Home } from "lucide-react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { Shield, CheckCircle, XCircle, Clock, Home, Upload, EyeOff, Eye } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -22,15 +22,33 @@ interface Stats {
   recentRooms: Array<{ code: string; name: string; phase: string; created_at: string }>;
 }
 
+interface LibraryImage {
+  id: string;
+  url: string;
+  source: string;
+  license: string;
+  source_url: string;
+  category: string;
+  active: boolean;
+  exposures: number;
+  vote_variance: number | null;
+}
+
 export default function AdminPage() {
   const [secret, setSecret] = useState("");
   const [authed, setAuthed] = useState(false);
-  const [tab, setTab] = useState<"reports" | "rooms">("reports");
+  const [tab, setTab] = useState<"reports" | "rooms" | "images">("reports");
   const [status, setStatus] = useState<"pending" | "reviewed" | "dismissed">("pending");
   const [reports, setReports] = useState<Report[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const [images, setImages] = useState<LibraryImage[]>([]);
+  const [imagesLoading, setImagesLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const headers = { "x-admin-secret": secret };
 
@@ -50,13 +68,52 @@ export default function AdminPage() {
       .finally(() => setLoading(false));
   }, [authed, status, secret]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const fetchImages = useCallback(() => {
+    if (!authed) return;
+    setImagesLoading(true);
+    fetch("/api/admin/images", { headers })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d: { images: LibraryImage[] } | null) => { if (d) setImages(d.images); })
+      .finally(() => setImagesLoading(false));
+  }, [authed, secret]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     const t0 = setTimeout(() => {
       fetchStats();
       fetchReports();
+      fetchImages();
     }, 0);
     return () => clearTimeout(t0);
-  }, [fetchStats, fetchReports]);
+  }, [fetchStats, fetchReports, fetchImages]);
+
+  async function uploadImage(formEl: HTMLFormElement) {
+    setUploadError("");
+    const fd = new FormData(formEl);
+    if (!fd.get("file") || !(fd.get("file") as File).size) {
+      setUploadError("파일을 선택하세요");
+      return;
+    }
+    setUploading(true);
+    const res = await fetch("/api/admin/images", { method: "POST", headers, body: fd });
+    setUploading(false);
+    if (res.ok) {
+      formEl.reset();
+      if (fileRef.current) fileRef.current.value = "";
+      fetchImages();
+    } else {
+      const d = await res.json().catch(() => null);
+      setUploadError(d?.error?.message ?? "업로드 실패");
+    }
+  }
+
+  async function toggleActive(img: LibraryImage) {
+    setImages((prev) => prev.map((i) => (i.id === img.id ? { ...i, active: !i.active } : i)));
+    await fetch("/api/admin/images", {
+      method: "PATCH",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ id: img.id, active: !img.active }),
+    });
+  }
 
   async function login() {
     const res = await fetch("/api/admin/reports?status=pending", {
@@ -134,7 +191,7 @@ export default function AdminPage() {
 
         {/* Tabs */}
         <div className="flex gap-2 border-b-2 border-foreground/10">
-          {(["reports", "rooms"] as const).map((t) => (
+          {(["reports", "rooms", "images"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -143,7 +200,7 @@ export default function AdminPage() {
                 tab === t ? "border-b-2 border-primary text-primary" : "text-muted-foreground"
               )}
             >
-              {t === "reports" ? "신고 관리" : "방 현황"}
+              {t === "reports" ? "신고 관리" : t === "rooms" ? "방 현황" : "이미지"}
             </button>
           ))}
         </div>
@@ -239,6 +296,80 @@ export default function AdminPage() {
                 </li>
               ))}
             </ul>
+          </section>
+        )}
+
+        {tab === "images" && (
+          <section className="space-y-4">
+            <form
+              onSubmit={(e) => { e.preventDefault(); uploadImage(e.currentTarget); }}
+              className="space-y-3 rounded-2xl border-2 border-border bg-card p-4"
+            >
+              <p className="flex items-center gap-2 font-bold"><Upload size={16} /> 라이브러리 이미지 업로드</p>
+              <p className="text-xs text-muted-foreground">
+                외부 API(Met/Pexels)로 못 채우는 자체 AI 생성 이미지 등을 등록할 때 사용합니다.
+                업로드된 이미지는 <b>모든 방에서 공용으로</b> 재사용됩니다 (room 전용 업로드가 아님).
+              </p>
+              <input ref={fileRef} type="file" name="file" accept="image/jpeg,image/png,image/webp" required
+                className="block w-full text-sm" />
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <select name="source" required defaultValue="AI" className="rounded-xl border-2 border-input bg-background px-2 py-2 text-sm">
+                  <option value="AI">AI 생성</option>
+                  <option value="USER">직접 촬영/제작</option>
+                </select>
+                <select name="license" required defaultValue="OWN" className="rounded-xl border-2 border-input bg-background px-2 py-2 text-sm">
+                  <option value="OWN">자체 자산 (OWN)</option>
+                  <option value="CC0">CC0</option>
+                  <option value="PD">Public Domain</option>
+                  <option value="KOGL-1">공공누리 1유형</option>
+                </select>
+                <select name="category" defaultValue="other" className="rounded-xl border-2 border-input bg-background px-2 py-2 text-sm">
+                  <option value="art">art</option>
+                  <option value="nature">nature</option>
+                  <option value="people">people</option>
+                  <option value="animals">animals</option>
+                  <option value="other">other</option>
+                </select>
+                <input type="text" name="era" placeholder="시대 (선택)" className="rounded-xl border-2 border-input bg-background px-2 py-2 text-sm" />
+              </div>
+              <input type="text" name="source_url" required placeholder="출처 URL (필수 — 공공누리·CC0 출처표시 의무)"
+                className="w-full rounded-xl border-2 border-input bg-background px-3 py-2 text-sm" />
+              {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
+              <button type="submit" disabled={uploading}
+                className="h-10 w-full rounded-xl bg-primary font-bold text-primary-foreground disabled:opacity-50">
+                {uploading ? "업로드 중..." : "업로드"}
+              </button>
+            </form>
+
+            {imagesLoading ? (
+              <p className="text-center text-muted-foreground">로딩 중...</p>
+            ) : images.length === 0 ? (
+              <p className="rounded-2xl border-2 border-dashed border-border p-8 text-center text-muted-foreground">등록된 이미지 없음</p>
+            ) : (
+              <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {images.map((img) => (
+                  <li key={img.id} className={cn(
+                    "space-y-1 overflow-hidden rounded-2xl border-2 bg-card",
+                    img.active ? "border-border" : "border-destructive/40 opacity-60"
+                  )}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={img.url} alt="" className="h-28 w-full object-cover" />
+                    <div className="space-y-1 p-2">
+                      <p className="truncate text-xs text-muted-foreground">{img.source} · {img.category}</p>
+                      <button
+                        onClick={() => toggleActive(img)}
+                        className={cn(
+                          "flex w-full items-center justify-center gap-1 rounded-lg px-2 py-1 text-xs font-bold",
+                          img.active ? "bg-muted text-muted-foreground hover:bg-muted/80" : "bg-green-100 text-green-700 hover:bg-green-200"
+                        )}
+                      >
+                        {img.active ? <><EyeOff size={12} /> 비활성화</> : <><Eye size={12} /> 활성화</>}
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
         )}
       </main>
