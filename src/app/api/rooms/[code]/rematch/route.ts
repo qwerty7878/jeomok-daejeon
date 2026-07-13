@@ -4,7 +4,7 @@ import { err, ok, getSessionId } from "@/lib/api-helpers";
 import { broadcast, roomChannel } from "@/lib/broadcast";
 
 interface RoomRow { id: string; phase: string; lives: number; }
-interface PlayerRow { id: string; nickname: string; lives: number; alive: boolean; connected: boolean; }
+interface PlayerRow { id: string; nickname: string; lives: number; alive: boolean; connected: boolean; team?: string | null; }
 
 export async function POST(
   req: NextRequest,
@@ -41,7 +41,7 @@ export async function POST(
     .limit(1);
 
   const { data: players } = await db
-    .from("players").select("id,nickname,lives,alive,connected")
+    .from("players").select("id,nickname,lives,alive,connected,team")
     .eq("room_id", room.id) as { data: PlayerRow[] | null };
 
   await broadcast(roomChannel(upperCode), "PHASE_CHANGED", { phase: "WAITING", round: 0, deadline: null });

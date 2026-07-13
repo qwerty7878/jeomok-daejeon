@@ -276,22 +276,25 @@ export function WaitingPhase({ state, sessionId }: Props) {
           )}
         </div>
 
-        {/* Team mode: player team list */}
-        {state.room.gameMode === "TEAM" && (
-          <div className="mt-4 flex flex-wrap justify-center gap-2">
-            {state.players.filter((p) => p.alive).map((p) => (
-              <span key={p.id} className={cn(
-                "rounded-full px-2.5 py-1 text-xs font-bold",
-                p.team === "A" ? "bg-blue-100 text-blue-700" :
-                p.team === "B" ? "bg-red-100 text-red-700" :
-                "bg-muted text-muted-foreground"
-              )}>
-                {p.team ? `팀${p.team} ` : ""}{p.nickname}
-              </span>
-            ))}
-          </div>
-        )}
       </div>
+
+      {/* Team mode: 카트라이더 스타일 팀 분할 (입장 즉시 배정되어 대기실부터 보임) */}
+      {state.room.gameMode === "TEAM" && (
+        <div className="grid grid-cols-2 gap-3">
+          <TeamColumn
+            label="팀 A"
+            color="blue"
+            players={state.players.filter((p) => p.alive && p.team === "A")}
+            myId={state.me.playerId}
+          />
+          <TeamColumn
+            label="팀 B"
+            color="red"
+            players={state.players.filter((p) => p.alive && p.team === "B")}
+            myId={state.me.playerId}
+          />
+        </div>
+      )}
 
       {/* Custom image upload (host only, CUSTOM mode) */}
       {isHost && isCustom && (
@@ -378,6 +381,41 @@ export function WaitingPhase({ state, sessionId }: Props) {
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+function TeamColumn({
+  label, color, players, myId,
+}: {
+  label: string;
+  color: "blue" | "red";
+  players: Array<{ id: string; nickname: string }>;
+  myId: string;
+}) {
+  const theme = color === "blue"
+    ? { border: "border-blue-300", header: "bg-blue-100 text-blue-700", dot: "bg-blue-500" }
+    : { border: "border-red-300", header: "bg-red-100 text-red-700", dot: "bg-red-500" };
+
+  return (
+    <div className={cn("overflow-hidden rounded-2xl border-2", theme.border)}>
+      <div className={cn("flex items-center justify-between px-3 py-2 text-sm font-bold", theme.header)}>
+        <span>{label}</span>
+        <span>{players.length}명</span>
+      </div>
+      <ul className="min-h-16 space-y-1 bg-card p-2">
+        {players.length === 0 ? (
+          <li className="py-3 text-center text-xs text-muted-foreground">대기 중...</li>
+        ) : (
+          players.map((p) => (
+            <li key={p.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-bold">
+              <span className={cn("size-1.5 shrink-0 rounded-full", theme.dot)} />
+              <span className="truncate">{p.nickname}</span>
+              {p.id === myId && <span className="text-xs font-normal text-muted-foreground">(나)</span>}
+            </li>
+          ))
+        )}
+      </ul>
     </div>
   );
 }

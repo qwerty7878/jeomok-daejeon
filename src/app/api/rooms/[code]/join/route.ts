@@ -8,11 +8,12 @@ interface RoomRow {
   id: string; room_type: string; invite_token: string;
   password_hash: string | null; max_players: number;
   phase: string; host_id: string | null; lives: number;
+  game_mode: string | null;
 }
 interface AttemptRow { fails: number; locked_until: string | null; }
 interface PlayerRow {
   id: string; session_id: string; alive: boolean; connected: boolean;
-  nickname: string; lives: number;
+  nickname: string; lives: number; team?: string | null;
 }
 
 export async function POST(
@@ -36,7 +37,7 @@ export async function POST(
   const db = createServerClient();
   const { data: room } = await db
     .from("rooms")
-    .select("id,room_type,invite_token,password_hash,max_players,phase,host_id,lives")
+    .select("id,room_type,invite_token,password_hash,max_players,phase,host_id,lives,game_mode")
     .eq("code", upperCode)
     .single() as { data: RoomRow | null };
 
@@ -122,8 +123,18 @@ export async function POST(
     await db.from("rooms").update({ host_id: player.id }).eq("code", upperCode);
   }
 
+  // 팀전 모드: 입장 즉시 인원 적은 팀에 배정 (대기실에서 바로 보여야 하므로 시작 시점까지 미루지 않는다)
+  if (!asSpectator && room.game_mode === "TEAM") {
+    const { data: teams } = await db
+      .from("players").select("team")
+      .eq("room_id", room.id).eq("alive", true) as { data: Array<{ team: string | null }> | null };
+    const aCount = (teams ?? []).filter((p) => p.team === "A").length;
+    const bCount = (teams ?? []).filter((p) => p.team === "B").length;
+    await db.from("players").update({ team: aCount <= bCount ? "A" : "B" }).eq("id", player.id);
+  }
+
   const { data: allPlayers } = await db
-    .from("players").select("id,nickname,lives,alive,connected")
+    .from("players").select("id,nickname,lives,alive,connected,team")
     .eq("room_id", room.id) as { data: PlayerRow[] | null };
 
   const hostId = room.host_id ?? player.id;

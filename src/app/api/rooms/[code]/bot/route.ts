@@ -4,8 +4,8 @@ import { err, ok, getSessionId } from "@/lib/api-helpers";
 import { broadcast, roomChannel } from "@/lib/broadcast";
 import { randomUUID } from "crypto";
 
-interface RoomRow { id: string; host_id: string | null; phase: string; max_players: number; lives: number; }
-interface PlayerRow { id: string; session_id: string; nickname: string; lives: number; alive: boolean; connected: boolean; }
+interface RoomRow { id: string; host_id: string | null; phase: string; max_players: number; lives: number; game_mode: string | null; }
+interface PlayerRow { id: string; session_id: string; nickname: string; lives: number; alive: boolean; connected: boolean; team?: string | null; }
 
 const BOT_NAMES = ["봇A", "봇B", "봇C", "봇D", "봇E"];
 
@@ -21,7 +21,7 @@ export async function POST(
   const db = createServerClient();
   const { data: room } = await db
     .from("rooms")
-    .select("id,host_id,phase,max_players,lives")
+    .select("id,host_id,phase,max_players,lives,game_mode")
     .eq("code", upperCode)
     .single() as { data: RoomRow | null };
 
@@ -64,8 +64,17 @@ export async function POST(
 
   if (!bot) return err("DB_ERROR", "봇 추가에 실패했습니다", 500);
 
+  if (room.game_mode === "TEAM") {
+    const { data: teams } = await db
+      .from("players").select("team")
+      .eq("room_id", room.id).eq("alive", true) as { data: Array<{ team: string | null }> | null };
+    const aCount = (teams ?? []).filter((p) => p.team === "A").length;
+    const bCount = (teams ?? []).filter((p) => p.team === "B").length;
+    await db.from("players").update({ team: aCount <= bCount ? "A" : "B" }).eq("id", bot.id);
+  }
+
   const { data: allPlayers } = await db
-    .from("players").select("id,session_id,nickname,lives,alive,connected")
+    .from("players").select("id,session_id,nickname,lives,alive,connected,team")
     .eq("room_id", room.id) as { data: PlayerRow[] | null };
 
   await broadcast(roomChannel(upperCode), "PLAYER_UPDATE", {

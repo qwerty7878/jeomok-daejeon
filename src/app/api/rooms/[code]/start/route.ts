@@ -54,20 +54,25 @@ export async function POST(
 
   if ((aliveCount ?? 0) < 3) return err("NOT_ENOUGH_PLAYERS", "3명 이상이어야 시작할 수 있습니다");
 
-  // 팀전 모드: 시작 시 팀 자동 배정
+  // 팀전 모드: 팀은 입장 시점에 이미 배정되어 대기실에 표시된 상태 (join/bot 라우트 참고).
+  // 여기선 재배정하지 않는다 — 대기 중 보여준 팀과 실제 게임 팀이 달라지면 안 되기 때문.
+  // 혹시 팀이 비어있는 플레이어만 방어적으로 채운다 (마이그레이션 이전 데이터 등 예외 상황 대비).
   if (room.game_mode === "TEAM") {
     const { data: allPlayers } = await db
-      .from("players").select("id")
+      .from("players").select("id,team")
       .eq("room_id", room.id).eq("alive", true)
-      .order("joined_at") as { data: Array<{ id: string }> | null };
+      .order("joined_at") as { data: Array<{ id: string; team: string | null }> | null };
 
     if (allPlayers && allPlayers.length >= 2) {
-      const shuffled = [...allPlayers].sort(() => Math.random() - 0.5);
-      const half = Math.ceil(shuffled.length / 2);
-      const teamAIds = shuffled.slice(0, half).map((p) => p.id);
-      const teamBIds = shuffled.slice(half).map((p) => p.id);
-      await db.from("players").update({ team: "A" }).in("id", teamAIds);
-      await db.from("players").update({ team: "B" }).in("id", teamBIds);
+      let aCount = allPlayers.filter((p) => p.team === "A").length;
+      let bCount = allPlayers.filter((p) => p.team === "B").length;
+      for (const p of allPlayers) {
+        if (p.team !== "A" && p.team !== "B") {
+          const team = aCount <= bCount ? "A" : "B";
+          await db.from("players").update({ team }).eq("id", p.id);
+          if (team === "A") aCount++; else bCount++;
+        }
+      }
     }
   }
 

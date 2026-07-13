@@ -44,7 +44,7 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         className={cn(
-          "gs-pop relative z-10 w-full max-w-md rounded-3xl border-2 border-foreground/10 bg-card p-6 shadow-2xl",
+          "gs-pop relative z-10 flex w-full max-w-md max-h-[85dvh] flex-col overflow-y-auto rounded-3xl border-2 border-foreground/10 bg-card p-6 shadow-2xl",
           className
         )}
       >

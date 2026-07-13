@@ -55,7 +55,7 @@
 {
   room: { code, name, roomType, phase, round, deadline /* ISO */,
           lives, writeSec, maxPlayers, hostId },
-  players: Array<{ id, nickname, lives, alive, connected, isHost }>,
+  players: Array<{ id, nickname, lives, alive, connected, isHost, team?: 'A'|'B'|null }>,
   me: { playerId, alive, submitted: boolean, voted: boolean },
   image?: { url },                       // WRITING 이후
   submissions?: Array<{ id, title }>,    // VOTING 이후. 작성자 없음
@@ -69,6 +69,9 @@
 
 ## POST /api/rooms/[code]/start
 방장만. 생존 3명 미만이면 `NOT_ENOUGH_PLAYERS`.
+`game_mode === 'TEAM'`이어도 여기서 팀을 (재)배정하지 않는다 — 팀은 입장(`join`)·봇 추가(`bot`) 시점에
+인원이 적은 쪽으로 즉시 배정되어 대기실부터 노출된다. 대기 중 보여준 팀 구성과 실제 게임이 달라지면 안 되기 때문.
+누락된 팀만 방어적으로 채운다.
 
 ## POST /api/rooms/[code]/submit
 ```ts
