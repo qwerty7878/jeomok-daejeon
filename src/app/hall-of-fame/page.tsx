@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Trophy, Crown, Star } from "lucide-react";
+import { AdBanner } from "@/components/ads/AdBanner";
 import type { HofPlayer } from "@/app/api/hall-of-fame/route";
 
 const RANK_ICONS = ["🥇", "🥈", "🥉"];
@@ -32,6 +33,8 @@ export default async function HallOfFamePage() {
           </Link>
         </div>
       </header>
+
+      <AdBanner />
 
       <main className="mx-auto max-w-4xl px-4 py-8">
         {players.length === 0 ? (
@@ -106,6 +109,7 @@ export default async function HallOfFamePage() {
           </ol>
         )}
       </main>
+      <AdBanner />
     </div>
   );
 }

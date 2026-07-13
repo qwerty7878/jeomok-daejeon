@@ -16,6 +16,7 @@ import { GameButton } from "@/components/ui/GameButton";
 import { Modal } from "@/components/ui/Modal";
 import { ReactionOverlay } from "@/components/ui/ReactionOverlay";
 import { cn } from "@/lib/utils";
+import { AdBanner } from "@/components/ads/AdBanner";
 import type { RoomState } from "@/types/game";
 
 function JoinModal({
@@ -294,27 +295,32 @@ export default function RoomPage() {
 
       {/* Desktop 3-panel layout */}
       <div className="hidden lg:flex h-[calc(100dvh-3.5rem)] overflow-hidden max-w-6xl mx-auto w-full gap-3 px-3 py-3">
-        <aside className="w-60 shrink-0 h-full overflow-hidden">
-          {state ? (
-            <PlayerList
-              players={state.players}
-              myPlayerId={state.me.playerId}
-              phase={state.room.phase}
-              maxLives={state.room.lives}
-              submittedIds={
-                (state as unknown as { _submittedPlayerIds?: string[] })._submittedPlayerIds
-                  ? new Set((state as unknown as { _submittedPlayerIds: string[] })._submittedPlayerIds)
-                  : undefined
-              }
-              votedIds={
-                (state as unknown as { _votedPlayerIds?: string[] })._votedPlayerIds
-                  ? new Set((state as unknown as { _votedPlayerIds: string[] })._votedPlayerIds)
-                  : undefined
-              }
-            />
-          ) : (
-            <div className="h-full rounded-2xl border-2 border-border bg-card" />
-          )}
+        <aside className="w-56 shrink-0 h-full flex flex-col gap-2 overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-hidden">
+            {state ? (
+              <PlayerList
+                players={state.players}
+                myPlayerId={state.me.playerId}
+                phase={state.room.phase}
+                maxLives={state.room.lives}
+                submittedIds={
+                  (state as unknown as { _submittedPlayerIds?: string[] })._submittedPlayerIds
+                    ? new Set((state as unknown as { _submittedPlayerIds: string[] })._submittedPlayerIds)
+                    : undefined
+                }
+                votedIds={
+                  (state as unknown as { _votedPlayerIds?: string[] })._votedPlayerIds
+                    ? new Set((state as unknown as { _votedPlayerIds: string[] })._votedPlayerIds)
+                    : undefined
+                }
+              />
+            ) : (
+              <div className="h-full rounded-2xl border-2 border-border bg-card" />
+            )}
+          </div>
+          <div className="shrink-0 overflow-hidden rounded-xl">
+            <AdBanner />
+          </div>
         </aside>
 
         <main className="flex flex-1 flex-col overflow-hidden">
@@ -330,15 +336,20 @@ export default function RoomPage() {
           />
         </main>
 
-        <aside className="w-64 shrink-0 h-full overflow-hidden">
-          <ChatPanel
-            messages={chat}
-            sessionId={sessionId}
-            roomCode={state?.room.code ?? code}
-            phase={state?.room.phase ?? "WAITING"}
-            myAlive={state?.me.alive ?? true}
-            mySubmitted={state?.me.submitted ?? false}
-          />
+        <aside className="w-64 shrink-0 h-full flex flex-col gap-2 overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <ChatPanel
+              messages={chat}
+              sessionId={sessionId}
+              roomCode={state?.room.code ?? code}
+              phase={state?.room.phase ?? "WAITING"}
+              myAlive={state?.me.alive ?? true}
+              mySubmitted={state?.me.submitted ?? false}
+            />
+          </div>
+          <div className="shrink-0 overflow-hidden rounded-xl">
+            <AdBanner />
+          </div>
         </aside>
       </div>
 
@@ -496,6 +507,9 @@ function MobileLayout({
         )}
       </div>
 
+      <div className="shrink-0 overflow-hidden">
+        <AdBanner />
+      </div>
       <nav className="border-t-2 border-foreground/10 bg-card flex">
         {(["game", "chat", "players"] as const).map((t) => (
           <button
