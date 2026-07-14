@@ -317,6 +317,8 @@ export default function RoomPage() {
                 myPlayerId={state.me.playerId}
                 phase={state.room.phase}
                 maxLives={state.room.lives}
+                roomCode={state.room.code}
+                sessionId={sessionId}
                 submittedIds={
                   (state as unknown as { _submittedPlayerIds?: string[] })._submittedPlayerIds
                     ? new Set((state as unknown as { _submittedPlayerIds: string[] })._submittedPlayerIds)
@@ -506,6 +508,8 @@ function MobileLayout({
             myPlayerId={state.me.playerId}
             phase={state.room.phase}
             maxLives={state.room.lives}
+            roomCode={state.room.code}
+            sessionId={sessionId}
             submittedIds={
               (state as unknown as { _submittedPlayerIds?: string[] })._submittedPlayerIds
                 ? new Set((state as unknown as { _submittedPlayerIds: string[] })._submittedPlayerIds)

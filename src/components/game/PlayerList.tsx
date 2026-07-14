@@ -1,5 +1,6 @@
 "use client";
-import { Crown, Check, Bot } from "lucide-react";
+import { useState } from "react";
+import { Crown, Check, Bot, X } from "lucide-react";
 import { Hearts } from "@/components/ui/Hearts";
 import { cn } from "@/lib/utils";
 import type { Player } from "@/types/game";
@@ -11,21 +12,43 @@ interface Props {
   maxLives?: number;
   submittedIds?: Set<string>;
   votedIds?: Set<string>;
+  roomCode?: string;
+  sessionId?: string;
 }
 
 export function PlayerList({
   players,
   myPlayerId,
+  phase,
   maxLives = 3,
   submittedIds,
   votedIds,
+  roomCode,
+  sessionId,
 }: Props) {
+  const [removingId, setRemovingId] = useState<string | null>(null);
   const sorted = [...players].sort((a, b) => {
     if (a.alive !== b.alive) return a.alive ? -1 : 1;
     return 0;
   });
   const activeCount = players.filter((p) => p.alive).length;
   const total = players.length;
+  const isHost = players.find((p) => p.id === myPlayerId)?.isHost ?? false;
+  const canRemoveBots = isHost && phase === "WAITING" && !!roomCode && !!sessionId;
+
+  async function removeBot(botId: string) {
+    if (!roomCode || !sessionId || removingId) return;
+    setRemovingId(botId);
+    try {
+      await fetch(`/api/rooms/${roomCode}/bot`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json", "x-session-id": sessionId },
+        body: JSON.stringify({ botId }),
+      });
+    } finally {
+      setRemovingId(null);
+    }
+  }
 
   return (
     <div className="flex h-full flex-col rounded-2xl bg-card">
@@ -74,6 +97,16 @@ export function PlayerList({
                   <span className="text-xs font-bold text-muted-foreground">탈락</span>
                 ) : (
                   <Hearts lives={p.lives} max={maxLives} size={12} />
+                )}
+                {canRemoveBots && p.nickname.startsWith("봇") && (
+                  <button
+                    onClick={() => removeBot(p.id)}
+                    disabled={removingId === p.id}
+                    aria-label={`${p.nickname} 제거`}
+                    className="grid size-5 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
+                  >
+                    <X size={13} />
+                  </button>
                 )}
               </div>
             </li>

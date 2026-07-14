@@ -1,10 +1,8 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { X } from "lucide-react";
-import { KakaoAdBanner } from "./KakaoAdBanner";
 import { GoogleAdBanner } from "./GoogleAdBanner";
 
-const KAKAO_UNIT = process.env.NEXT_PUBLIC_KAKAO_ADFIT_UNIT_INTER;
 const GOOGLE_CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT;
 const GOOGLE_SLOT = process.env.NEXT_PUBLIC_ADSENSE_SLOT_INTER;
 
@@ -20,7 +18,7 @@ export function useGameEndAd() {
     if (triggered.current) return;
     triggered.current = true;
 
-    const hasAd = !!KAKAO_UNIT || !!(GOOGLE_CLIENT && GOOGLE_SLOT);
+    const hasAd = !!(GOOGLE_CLIENT && GOOGLE_SLOT);
     if (!hasAd) return;
 
     try {
@@ -43,7 +41,6 @@ interface Props {
 
 export function AdInterstitial({ onClose }: Props) {
   const [remaining, setRemaining] = useState(CLOSE_DELAY_SEC);
-  const hasKakao = !!KAKAO_UNIT;
   const hasGoogle = !!(GOOGLE_CLIENT && GOOGLE_SLOT);
 
   useEffect(() => {
@@ -73,17 +70,13 @@ export function AdInterstitial({ onClose }: Props) {
           </button>
         </div>
 
-        {/* Ad content — Google 우선, 없으면 Kakao */}
+        {/* Ad content */}
         <div className="flex flex-col items-center p-4">
-          {hasGoogle ? (
+          {hasGoogle && (
             <div className="w-full">
               <GoogleAdBanner client={GOOGLE_CLIENT!} slot={GOOGLE_SLOT!} format="rectangle" />
             </div>
-          ) : hasKakao ? (
-            <div className="flex justify-center">
-              <KakaoAdBanner unit={KAKAO_UNIT!} width={320} height={100} />
-            </div>
-          ) : null}
+          )}
         </div>
       </div>
     </div>

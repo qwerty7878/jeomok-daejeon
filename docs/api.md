@@ -73,6 +73,32 @@
 인원이 적은 쪽으로 즉시 배정되어 대기실부터 노출된다. 대기 중 보여준 팀 구성과 실제 게임이 달라지면 안 되기 때문.
 누락된 팀만 방어적으로 채운다.
 
+## POST /api/rooms/[code]/bot
+방장만, `WAITING`에서만. 봇 플레이어 추가.
+- `room.max_players` 초과 시 `ROOM_FULL`
+- 봇 닉네임은 `봇A~봇E` 중 미사용 이름 자동 배정, 5명 초과 시 `MAX_BOTS`
+- `game_mode === 'TEAM'`이면 인원이 적은 팀에 즉시 배정
+- 성공 시 `PLAYER_UPDATE` 브로드캐스트
+
+```ts
+// res 200
+{ botId: string, nickname: string }
+```
+
+## DELETE /api/rooms/[code]/bot
+방장만, `WAITING`에서만. 봇 플레이어 제거.
+
+```ts
+// req
+{ botId: string }
+// res 200
+{ removed: true }
+```
+- 대상이 봇이 아니거나(`session_id`가 `bot:`로 시작하지 않음) 다른 방 소속이면 `NOT_A_BOT`
+- 존재하지 않으면 `PLAYER_NOT_FOUND`
+- `game_mode === 'TEAM'`이어도 팀 재배정 없음 — 남은 인원 그대로
+- 성공 시 `PLAYER_UPDATE` 브로드캐스트
+
 ## POST /api/rooms/[code]/submit
 ```ts
 { round: number, title: string /* ≤40자 */ }

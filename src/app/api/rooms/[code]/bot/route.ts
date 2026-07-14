@@ -83,3 +83,55 @@ export async function POST(
 
   return ok({ botId: bot.id, nickname: botName });
 }
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ code: string }> }
+) {
+  const { code } = await params;
+  const upperCode = code.toUpperCase();
+  const sessionId = getSessionId(req);
+  if (!sessionId) return err("MISSING_SESSION", "x-session-id required");
+
+  const body = await req.json().catch(() => null) as { botId?: string } | null;
+  const botId = body?.botId;
+  if (!botId) return err("INVALID_BODY", "botId required");
+
+  const db = createServerClient();
+  const { data: room } = await db
+    .from("rooms")
+    .select("id,host_id,phase")
+    .eq("code", upperCode)
+    .single() as { data: RoomRow | null };
+
+  if (!room) return err("ROOM_NOT_FOUND", "존재하지 않는 방입니다", 404);
+  if (room.phase !== "WAITING") return err("NOT_WAITING", "대기 중에만 봇을 제거할 수 있습니다");
+
+  const { data: me } = await db
+    .from("players").select("id")
+    .eq("room_id", room.id).eq("session_id", sessionId)
+    .maybeSingle() as { data: { id: string } | null };
+
+  if (!me) return err("NOT_IN_ROOM", "방에 입장하지 않았습니다", 403);
+  if (room.host_id !== me.id) return err("NOT_HOST", "방장만 봇을 제거할 수 있습니다", 403);
+
+  const { data: bot } = await db
+    .from("players").select("id,room_id,session_id")
+    .eq("id", botId)
+    .maybeSingle() as { data: { id: string; room_id: string; session_id: string } | null };
+
+  if (!bot || bot.room_id !== room.id) return err("PLAYER_NOT_FOUND", "존재하지 않는 플레이어입니다", 404);
+  if (!bot.session_id.startsWith("bot:")) return err("NOT_A_BOT", "봇이 아닙니다", 400);
+
+  await db.from("players").delete().eq("id", bot.id);
+
+  const { data: allPlayers } = await db
+    .from("players").select("id,session_id,nickname,lives,alive,connected,team")
+    .eq("room_id", room.id) as { data: PlayerRow[] | null };
+
+  await broadcast(roomChannel(upperCode), "PLAYER_UPDATE", {
+    players: (allPlayers ?? []).map((p) => ({ ...p, isHost: p.id === room.host_id })),
+  });
+
+  return ok({ removed: true });
+}
