@@ -122,7 +122,7 @@ async function main() {
   const existingUrls = await getExistingUrls();
   console.log(`기존 이미지: ${existingUrls.size}장\n`);
 
-  const TARGET_PER_CATEGORY = 50;
+  const TARGET_PER_CATEGORY = 100;
   const totals = {};
 
   for (const [category, queryList] of Object.entries(CATEGORY_QUERIES)) {
