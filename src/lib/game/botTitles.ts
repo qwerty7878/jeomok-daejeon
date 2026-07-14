@@ -13,7 +13,9 @@ function fallback(): string {
   return FALLBACK_TITLES[Math.floor(Math.random() * FALLBACK_TITLES.length)];
 }
 
-const AI_CALL_TIMEOUT_MS = 1500;
+// 실측 결과 gpt-4o-mini 비전 호출은 평균 1.5~2초 걸린다 — 이 예산 안에 거의 항상 못 들어온다.
+// 즉 이 타임아웃 값 자체가 "라운드 전환마다 무조건 추가되는 지연"이 된다. 최대한 낮게 잡는다.
+const AI_CALL_TIMEOUT_MS = 300;
 
 // AI 호출은 phase 전이 브로드캐스트를 막는 크리티컬 패스에 있으므로,
 // 느려도(느린 응답/네트워크 혼잡) 라운드 전환 체감 속도가 죽지 않도록 상한을 둔다.
