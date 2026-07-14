@@ -195,6 +195,9 @@ export function LobbyClient({ initialRooms }: { initialRooms: RoomItem[] }) {
             <Link href="/credits" className="transition-colors hover:text-foreground">
               이미지 출처
             </Link>
+            <Link href="/privacy" className="transition-colors hover:text-foreground">
+              개인정보처리방침
+            </Link>
             <Link href="/admin" className="opacity-0 hover:opacity-100 transition-opacity text-[10px]">
               ·
             </Link>
