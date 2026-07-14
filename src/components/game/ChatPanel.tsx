@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { Send, Lock, Flag } from "lucide-react";
+import { ReactionBar } from "@/components/ui/ReactionBar";
 import type { ChatMessage } from "@/hooks/useGameRoom";
 
 interface Props {
@@ -108,6 +109,9 @@ export function ChatPanel({
           );
         })}
         <div ref={endRef} />
+      </div>
+      <div className="border-t border-border p-2">
+        <ReactionBar roomCode={roomCode} sessionId={sessionId} compact />
       </div>
       <div className="border-t border-border p-2">
         {isLocked ? (

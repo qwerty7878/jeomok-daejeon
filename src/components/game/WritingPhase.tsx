@@ -4,7 +4,6 @@ import Image from "next/image";
 import { Pencil, Check, Eye } from "lucide-react";
 import { TimerBar } from "@/components/ui/TimerBar";
 import { GameButton } from "@/components/ui/GameButton";
-import { ReactionBar } from "@/components/ui/ReactionBar";
 import type { RoomState } from "@/types/game";
 
 const MAX = 40;
@@ -126,10 +125,9 @@ export function WritingPhase({ state, sessionId, onTick, onSubmitted }: Props) {
       {/* Input area */}
       {isSpectator ? (
         <div className="rounded-2xl border-2 border-dashed border-border bg-card/50 p-5">
-          <p className="mb-4 flex items-center gap-2 font-bold text-muted-foreground">
-            <Eye size={18} /> 관전 중 — 리액션을 보내보세요
+          <p className="flex items-center gap-2 font-bold text-muted-foreground">
+            <Eye size={18} /> 관전 중 — 채팅창에서 리액션을 보내보세요
           </p>
-          <ReactionBar roomCode={state.room.code} sessionId={sessionId} />
         </div>
       ) : submitted ? (
         <div className="flex items-center gap-3 rounded-2xl border-2 border-secondary bg-secondary/10 p-5">

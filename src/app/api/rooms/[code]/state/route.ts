@@ -2,12 +2,17 @@ import { NextRequest } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { err, ok, getSessionId } from "@/lib/api-helpers";
 
+interface RoundResultSnapshot {
+  ranking: Array<{ id: string; title: string; author: string; votes: number; aiScore?: number }>;
+  eliminated: string[];
+}
 interface RoomRow {
   id: string; code: string; name: string; room_type: string;
   phase: string; round: number; deadline: string | null;
   lives: number; write_sec: number; max_players: number;
   host_id: string | null; current_image: string | null;
   image_source: string; image_category: string; game_mode: string;
+  last_round_result: RoundResultSnapshot | null;
 }
 interface PlayerRow {
   id: string; session_id: string; nickname: string;
@@ -31,7 +36,7 @@ export async function GET(
   // 마이그레이션 후 새 컬럼 포함, 없으면 기본 컬럼만 조회
   let { data: room, error } = await db
     .from("rooms")
-    .select("id,code,name,room_type,phase,round,deadline,lives,write_sec,max_players,host_id,current_image,image_source,image_category,game_mode")
+    .select("id,code,name,room_type,phase,round,deadline,lives,write_sec,max_players,host_id,current_image,image_source,image_category,game_mode,last_round_result")
     .eq("code", code.toUpperCase())
     .single() as { data: RoomRow | null; error: unknown };
 
@@ -40,11 +45,21 @@ export async function GET(
     // 새 컬럼 없음 — 기존 컬럼만 조회
     const fallback = await db
       .from("rooms")
+      .select("id,code,name,room_type,phase,round,deadline,lives,write_sec,max_players,host_id,current_image,image_source,image_category,game_mode")
+      .eq("code", code.toUpperCase())
+      .single() as { data: Omit<RoomRow, "last_round_result"> | null; error: unknown };
+    room = fallback.data ? { ...fallback.data, last_round_result: null } : null;
+    error = fallback.error;
+  }
+  if (isMissingCol(error)) {
+    // image_source 등도 없는 더 이전 마이그레이션 상태
+    const fallback2 = await db
+      .from("rooms")
       .select("id,code,name,room_type,phase,round,deadline,lives,write_sec,max_players,host_id,current_image")
       .eq("code", code.toUpperCase())
-      .single() as { data: Omit<RoomRow, "image_source" | "image_category" | "game_mode"> | null; error: unknown };
-    room = fallback.data ? { ...fallback.data, image_source: "LIBRARY", image_category: "random", game_mode: "SOLO" } : null;
-    error = fallback.error;
+      .single() as { data: Omit<RoomRow, "image_source" | "image_category" | "game_mode" | "last_round_result"> | null; error: unknown };
+    room = fallback2.data ? { ...fallback2.data, image_source: "LIBRARY", image_category: "random", game_mode: "SOLO", last_round_result: null } : null;
+    error = fallback2.error;
   }
 
   if (error || !room) return err("ROOM_NOT_FOUND", "존재하지 않는 방입니다", 404);
@@ -143,39 +158,46 @@ export async function GET(
   }
 
   if (room.phase === "ROUND_RESULT") {
-    const { data: subs } = await db
-      .from("submissions")
-      .select("id,title,player_id")
-      .eq("room_id", room.id)
-      .eq("round", room.round) as { data: SubmissionRow[] | null };
+    if (room.last_round_result) {
+      // 실시간으로 브로드캐스트된 결과를 그대로 반환 — 재계산하면 AI 스코어링을 다시 호출해서
+      // 이미 목숨이 깎인 실제 결과와 달라질 수 있음
+      response.result = room.last_round_result;
+    } else {
+      // last_round_result가 없는 과거 라운드(마이그레이션 전/컬럼 누락) 대비 폴백.
+      // 득표수만으로 재구성 — AI 스코어링 가중치는 반영되지 않음
+      const { data: subs } = await db
+        .from("submissions")
+        .select("id,title,player_id")
+        .eq("room_id", room.id)
+        .eq("round", room.round) as { data: SubmissionRow[] | null };
 
-    const { data: votes } = await db
-      .from("votes")
-      .select("submission_id")
-      .eq("room_id", room.id)
-      .eq("round", room.round) as { data: VoteRow[] | null };
+      const { data: votes } = await db
+        .from("votes")
+        .select("submission_id")
+        .eq("room_id", room.id)
+        .eq("round", room.round) as { data: VoteRow[] | null };
 
-    // 닉네임 별도 조회
-    const playerIds = [...new Set((subs ?? []).map((s) => s.player_id))];
-    const { data: nickPlayers } = playerIds.length > 0
-      ? await db.from("players").select("id,nickname").in("id", playerIds) as { data: PlayerNickRow[] | null }
-      : { data: [] as PlayerNickRow[] };
+      const playerIds = [...new Set((subs ?? []).map((s) => s.player_id))];
+      const { data: nickPlayers } = playerIds.length > 0
+        ? await db.from("players").select("id,nickname").in("id", playerIds) as { data: PlayerNickRow[] | null }
+        : { data: [] as PlayerNickRow[] };
 
-    const nickMap: Record<string, string> = {};
-    for (const p of nickPlayers ?? []) nickMap[p.id] = p.nickname;
+      const nickMap: Record<string, string> = {};
+      for (const p of nickPlayers ?? []) nickMap[p.id] = p.nickname;
 
-    const voteCounts: Record<string, number> = {};
-    for (const v of votes ?? []) {
-      voteCounts[v.submission_id] = (voteCounts[v.submission_id] ?? 0) + 1;
+      const voteCounts: Record<string, number> = {};
+      for (const v of votes ?? []) {
+        voteCounts[v.submission_id] = (voteCounts[v.submission_id] ?? 0) + 1;
+      }
+
+      const ranking = (subs ?? [])
+        .map((s) => ({ id: s.player_id, title: s.title, author: nickMap[s.player_id] ?? "?", votes: voteCounts[s.id] ?? 0 }))
+        .sort((a, b) => b.votes - a.votes);
+
+      const minVotes = ranking.length > 0 ? Math.min(...ranking.map((r) => r.votes)) : 0;
+      const eliminated = ranking.filter((r) => r.votes === minVotes).map((r) => r.id);
+      response.result = { ranking, eliminated };
     }
-
-    const ranking = (subs ?? [])
-      .map((s) => ({ id: s.id, title: s.title, author: nickMap[s.player_id] ?? "?", votes: voteCounts[s.id] ?? 0 }))
-      .sort((a, b) => b.votes - a.votes);
-
-    const minVotes = ranking.length > 0 ? Math.min(...ranking.map((r) => r.votes)) : 0;
-    const eliminated = ranking.filter((r) => r.votes === minVotes).map((r) => r.id);
-    response.result = { ranking, eliminated };
   }
 
   return ok(response);

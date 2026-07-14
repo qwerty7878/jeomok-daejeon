@@ -222,12 +222,18 @@ export async function computeAndBroadcastResult(code: string, round: number) {
   const livesMap: Record<string, number> = {};
   for (const p of updatedPlayers ?? []) livesMap[p.id] = p.lives;
 
-  await broadcast(roomChannel(code), "ROUND_RESULT", {
-    ranking,
-    eliminated: eliminatedPlayerIds,
-    losers: toDeduct,
-    lives: livesMap,
-  });
+  // GET /state가 재접속 시 재계산 대신 그대로 돌려줄 스냅샷 — 브로드캐스트와 반드시 같은 값이어야 함
+  const resultSnapshot = { ranking, eliminated: eliminatedPlayerIds };
+
+  await Promise.all([
+    broadcast(roomChannel(code), "ROUND_RESULT", {
+      ranking,
+      eliminated: eliminatedPlayerIds,
+      losers: toDeduct,
+      lives: livesMap,
+    }),
+    db.from("rooms").update({ last_round_result: resultSnapshot }).eq("id", room.id),
+  ]);
   await broadcast(roomChannel(code), "PLAYER_UPDATE", {
     players: updatedPlayers?.map((p) => ({
       id: p.id, nickname: p.nickname, lives: p.lives,

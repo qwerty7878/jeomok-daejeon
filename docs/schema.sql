@@ -36,6 +36,9 @@ CREATE TABLE rooms (
   image_source   text NOT NULL DEFAULT 'LIBRARY' CHECK (image_source IN ('LIBRARY','CUSTOM')),
   image_category text NOT NULL DEFAULT 'random',  -- 'random'|'art'|'nature'|'people'|'animals'|'other'
   game_mode      text NOT NULL DEFAULT 'SOLO' CHECK (game_mode IN ('SOLO','TEAM')),
+  last_round_result jsonb,                        -- 방금 브로드캐스트한 ROUND_RESULT 스냅샷 그대로 저장.
+                                                    -- GET /state가 재접속 시 재계산 대신 이걸 그대로 반환 (재계산하면 AI 스코어링을 다시 호출해서
+                                                    -- 브로드캐스트 받은 결과와 달라질 수 있음 — 이미 목숨 차감이 끝난 결과와 불일치하면 안 됨)
   created_at     timestamptz NOT NULL DEFAULT now(),
   updated_at     timestamptz NOT NULL DEFAULT now()
 );

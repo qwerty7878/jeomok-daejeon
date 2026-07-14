@@ -3,7 +3,6 @@ import { useRef, useState } from "react";
 import Image from "next/image";
 import { Check, Vote as VoteIcon } from "lucide-react";
 import { TimerBar } from "@/components/ui/TimerBar";
-import { ReactionBar } from "@/components/ui/ReactionBar";
 import { cn } from "@/lib/utils";
 import type { RoomState } from "@/types/game";
 
@@ -176,11 +175,10 @@ export function VotingPhase({ state, sessionId, onTick, mySubmissionId }: Props)
       {(voted || isSpectator) && (
         <div className="rounded-2xl border-2 border-dashed border-border bg-card/50 p-4">
           {voted && (
-            <p className="mb-3 text-center text-sm font-bold text-muted-foreground">
+            <p className="text-center text-sm font-bold text-muted-foreground">
               투표 완료! 다른 참가자를 기다리는 중...
             </p>
           )}
-          <ReactionBar roomCode={state.room.code} sessionId={sessionId} compact />
         </div>
       )}
     </div>

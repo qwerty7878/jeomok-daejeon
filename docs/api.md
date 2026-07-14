@@ -60,12 +60,14 @@
   image?: { url },                       // WRITING 이후
   submissions?: Array<{ id, title }>,    // VOTING 이후. 작성자 없음
   result?: {                             // ROUND_RESULT 일 때만
-    ranking: Array<{ id, title, author, votes }>,
+    ranking: Array<{ id, title, author, votes, aiScore? }>,
     eliminated: string[]
   }
 }
 ```
 > ⚠️ `phase === 'WRITING'`이면 `submissions`를 **절대 포함하지 않는다.**
+> `result`는 `rooms.last_round_result`에 저장해둔 브로드캐스트 스냅샷을 그대로 반환한다 — 재계산하지 않는다.
+> (AI 스코어링을 다시 호출하면 이미 목숨이 깎인 실제 결과와 달라질 수 있어서 금지)
 
 ## POST /api/rooms/[code]/start
 방장만. 생존 3명 미만이면 `NOT_ENOUGH_PLAYERS`.

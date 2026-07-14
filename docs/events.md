@@ -24,7 +24,7 @@
 | `SUBMISSIONS_REVEALED` | `{ submissions: [{id,title}] }` | VOTING 진입. **author 없음, 서버가 셔플** |
 | `VOTE_PROGRESS` | `{ voted, total, voterIds }` | 투표마다. voterIds = 투표 완료한 player_id[] |
 | `SKIP_READY` | `{ playerId }` | 결과 페이지에서 플레이어가 스킵 동의 |
-| `ROUND_RESULT` | `{ ranking, eliminated, lives }` | 라운드 종료 |
+| `ROUND_RESULT` | `{ ranking: [{id,title,author,votes,aiScore}], eliminated, losers, lives }` | 라운드 종료. `rooms.last_round_result`에 `{ranking,eliminated}` 그대로 저장됨 (재접속 시 `GET /state`가 재계산 없이 반환) |
 | `GAME_OVER` | `{ winners, highlights, resultId }` | 게임 종료 |
 | `REACTION` | `{ nickname, emoji }` | 리액션 이모지 (관전자 포함) |
 | `CHAT` | `{ nickname, message, at, alive: boolean }` | 채팅 (VOTING 중엔 발행 안 됨). `alive=false`면 관전자 발화 |

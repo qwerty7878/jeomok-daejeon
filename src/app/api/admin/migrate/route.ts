@@ -48,6 +48,8 @@ const MIGRATIONS = [
     created_at timestamptz NOT NULL DEFAULT now()
   )`,
   `ALTER TABLE reports ENABLE ROW LEVEL SECURITY`,
+  // last_round_result snapshot (재접속 시 재계산 대신 사용)
+  `ALTER TABLE rooms ADD COLUMN IF NOT EXISTS last_round_result jsonb`,
 ];
 
 export async function POST(req: NextRequest) {
