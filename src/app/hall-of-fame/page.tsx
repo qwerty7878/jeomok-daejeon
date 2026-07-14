@@ -76,7 +76,6 @@ export default async function HallOfFamePage() {
                             fill
                             className="object-cover"
                             sizes="56px"
-                            unoptimized
                           />
                         ) : (
                           <div className="flex h-full items-center justify-center text-muted-foreground/30">

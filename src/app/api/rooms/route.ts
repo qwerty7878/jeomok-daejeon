@@ -2,44 +2,17 @@ import { NextRequest } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { err, ok, generateRoomCode, getSessionId } from "@/lib/api-helpers";
 import { broadcast } from "@/lib/broadcast";
+import { getPublicRooms } from "@/lib/get-public-rooms";
 import { v4 as uuidv4 } from "uuid";
 import bcrypt from "bcrypt";
 
 export async function GET() {
-  const db = createServerClient();
-  const { data, error } = await db
-    .from("rooms")
-    .select("code, name, room_type, max_players, phase")
-    .in("room_type", ["PUBLIC", "LOCKED"])
-    .eq("phase", "WAITING")
-    .order("updated_at", { ascending: false })
-    .limit(50);
-
-  if (error) return err("DB_ERROR", error.message, 500);
-
-  const rooms = await Promise.all(
-    (data ?? []).map(async (r) => {
-      const { count } = await db
-        .from("players")
-        .select("*", { count: "exact", head: true })
-        .eq("room_id", r.code);
-      return {
-        code: r.code,
-        name: r.name,
-        roomType: r.room_type,
-        playerCount: count ?? 0,
-        maxPlayers: r.max_players,
-        status:
-          r.phase === "WAITING"
-            ? "WAITING"
-            : count === r.max_players
-            ? "FULL"
-            : "PLAYING",
-      };
-    })
-  );
-
-  return ok({ rooms });
+  try {
+    const rooms = await getPublicRooms();
+    return ok({ rooms });
+  } catch (e) {
+    return err("DB_ERROR", e instanceof Error ? e.message : "DB error", 500);
+  }
 }
 
 export async function POST(req: NextRequest) {
