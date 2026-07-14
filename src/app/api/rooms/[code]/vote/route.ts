@@ -63,8 +63,10 @@ export async function POST(
   const voterIds = (allVotes ?? []).map((v) => v.voter_id);
   const totalVoters = allPlayers.length;
 
-  // 인간 플레이어만 집계 (봇 제외)
-  const humanPlayers = alivePlayers.filter((p) => !p.session_id.startsWith("bot:"));
+  // 관전자(탈락자)도 투표 가능하므로 alive 여부 무관하게 인간 전체를 집계 대상으로 삼는다.
+  // alive만 세면 관전자가 투표하기 전에 조기 전이가 먼저 터져서 표가 묻히고, 그만큼 동점이 잦아짐.
+  // 봇은 원래대로 생존 봇만 자동투표 대상.
+  const humanPlayers = allPlayers.filter((p) => !p.session_id.startsWith("bot:"));
   const botPlayers = alivePlayers.filter((p) => p.session_id.startsWith("bot:"));
   const humanPlayerIds = new Set(humanPlayers.map((p) => p.id));
   const humanVoted = voterIds.filter((id) => humanPlayerIds.has(id)).length;
