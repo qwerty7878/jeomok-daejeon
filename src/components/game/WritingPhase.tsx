@@ -100,7 +100,9 @@ export function WritingPhase({ state, sessionId, onTick, onSubmitted }: Props) {
         />
       </div>
 
-      {/* Image */}
+      {/* Image — unoptimized: 매 라운드 새 이미지라 Vercel 최적화 캐시가 항상 콜드라
+          변환 지연이 그대로 체감 지연이 된다. useGameRoom의 IMAGE_REVEALED 프리로드와
+          원본 URL을 맞추기 위해서도 필요 */}
       <div className="overflow-hidden rounded-2xl border-2 border-border bg-card">
         <div className="relative aspect-[4/3] w-full bg-muted">
           {state.image ? (
@@ -111,6 +113,7 @@ export function WritingPhase({ state, sessionId, onTick, onSubmitted }: Props) {
               priority
               className="object-contain"
               sizes="(max-width: 1024px) 100vw, 640px"
+              unoptimized
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">

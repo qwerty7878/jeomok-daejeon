@@ -1,5 +1,6 @@
 import { createServerClient, SupabaseServerClient } from "@/lib/supabase/server";
 import { broadcast, roomChannel } from "@/lib/broadcast";
+import { withTimeout } from "@/lib/game/botTitles";
 
 interface SubmissionRow { id: string; title: string; player_id: string; }
 interface VoteRow { submission_id: string; }
@@ -18,23 +19,27 @@ async function computeAIScores(
     const OpenAI = (await import("openai")).default;
     const client = new OpenAI({ apiKey });
     const numbered = subs.map((s, i) => `${i + 1}. ${s.title}`).join("\n");
-    const res = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      max_tokens: 80,
-      messages: [
-        {
-          role: "system",
-          content: "CTR 예측 전문가. 사진과 제목 후보들을 보고 각 제목의 클릭 충동도를 1~10점으로 평가. 궁금증·유머·반전·감정 자극 기준. JSON만 반환: {\"s\":[점수,...]}",
-        },
-        {
-          role: "user",
-          content: [
-            { type: "image_url", image_url: { url: imageUrl, detail: "low" } },
-            { type: "text", text: `제목 후보:\n${numbered}\n\n{\"s\":[]} 형식으로만:` },
-          ],
-        },
-      ],
-    });
+    const res = await withTimeout(
+      client.chat.completions.create({
+        model: "gpt-4o-mini",
+        max_tokens: 80,
+        messages: [
+          {
+            role: "system",
+            content: "CTR 예측 전문가. 사진과 제목 후보들을 보고 각 제목의 클릭 충동도를 1~10점으로 평가. 궁금증·유머·반전·감정 자극 기준. JSON만 반환: {\"s\":[점수,...]}",
+          },
+          {
+            role: "user",
+            content: [
+              { type: "image_url", image_url: { url: imageUrl, detail: "low" } },
+              { type: "text", text: `제목 후보:\n${numbered}\n\n{\"s\":[]} 형식으로만:` },
+            ],
+          },
+        ],
+      }),
+      null
+    );
+    if (!res) return neutral;
     const raw = res.choices[0]?.message?.content?.trim() ?? "";
     const match = raw.match(/\{[\s\S]*\}/);
     if (!match) return neutral;

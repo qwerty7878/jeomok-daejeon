@@ -153,6 +153,7 @@ export function ResultPhase({ state, sessionId, onTick, onForceTick, skipReadyId
                   fill
                   className="object-cover"
                   sizes="80px"
+                  unoptimized
                 />
               </div>
             )}

@@ -107,6 +107,7 @@ export function VotingPhase({ state, sessionId, onTick, mySubmissionId }: Props)
               fill
               className="object-cover"
               sizes="64px"
+              unoptimized
             />
           </div>
           <div>
