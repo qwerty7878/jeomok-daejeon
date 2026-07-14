@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
+import { AdBanner } from "@/components/ads/AdBanner";
 
 export const metadata = {
   title: "이미지 출처 · 제목대전",
@@ -64,6 +65,10 @@ export default function CreditsPage() {
       >
         ← 로비로 돌아가기
       </Link>
+
+      <div className="mt-10">
+        <AdBanner />
+      </div>
     </div>
   );
 }

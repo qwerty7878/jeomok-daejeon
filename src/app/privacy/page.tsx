@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AdBanner } from "@/components/ads/AdBanner";
 
 export const metadata = {
   title: "개인정보처리방침 · 제목대전",
@@ -145,6 +146,10 @@ export default function PrivacyPage() {
       >
         ← 로비로 돌아가기
       </Link>
+
+      <div className="mt-10">
+        <AdBanner />
+      </div>
     </div>
   );
 }
