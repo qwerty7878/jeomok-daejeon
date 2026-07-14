@@ -10,6 +10,8 @@ interface RoomRow {
   deadline: string | null; current_image: string | null;
 }
 interface PlayerRow { id: string; alive: boolean; }
+interface AlivePlayerRow { id: string; session_id: string; }
+interface SubRow { id: string; title: string; player_id: string; }
 
 export async function POST(
   req: NextRequest,
@@ -49,74 +51,61 @@ export async function POST(
     { onConflict: "room_id,round,player_id" }
   ).select("id").single() as { data: { id: string } | null };
 
-  const { data: allSubs } = await db
-    .from("submissions").select("player_id")
-    .eq("room_id", room.id).eq("round", room.round) as { data: Array<{ player_id: string }> | null };
+  // 독립적인 조회 2개는 병렬로 — 리전 왕복이 라운드 전이 체감 지연의 핵심이라 여기서 아낀다
+  const [allSubsRes, alivePlayersRes] = await Promise.all([
+    db.from("submissions").select("id,title,player_id")
+      .eq("room_id", room.id).eq("round", room.round) as unknown as Promise<{ data: SubRow[] | null }>,
+    db.from("players").select("id,session_id")
+      .eq("room_id", room.id).eq("alive", true) as unknown as Promise<{ data: AlivePlayerRow[] | null }>,
+  ]);
 
-  const playerIds = (allSubs ?? []).map((s) => s.player_id);
+  const allSubs = allSubsRes.data ?? [];
+  const alivePlayers = alivePlayersRes.data ?? [];
+  const playerIds = allSubs.map((s) => s.player_id);
   const submitted = playerIds.length;
+  const aliveCount = alivePlayers.length;
 
-  const { count: aliveCount } = await db
-    .from("players").select("*", { count: "exact", head: true })
-    .eq("room_id", room.id).eq("alive", true);
-
-  // 인간 플레이어 수 (봇 제외) — 즉시 전환 기준
-  const { data: humanPlayers } = await db
-    .from("players").select("id")
-    .eq("room_id", room.id).eq("alive", true)
-    .not("session_id", "like", "bot:%") as { data: Array<{ id: string }> | null };
-  const humanCount = humanPlayers?.length ?? 0;
-
-  // 제출한 인간 플레이어 수
-  const { data: humanSubs } = await db
-    .from("submissions")
-    .select("player_id")
-    .eq("room_id", room.id)
-    .eq("round", room.round)
-    .in("player_id", (humanPlayers ?? []).map((p) => p.id)) as { data: Array<{ player_id: string }> | null };
-  const humanSubmitted = humanSubs?.length ?? 0;
+  const humanPlayers = alivePlayers.filter((p) => !p.session_id.startsWith("bot:"));
+  const botPlayers = alivePlayers.filter((p) => p.session_id.startsWith("bot:"));
+  const humanCount = humanPlayers.length;
+  const humanPlayerIds = new Set(humanPlayers.map((p) => p.id));
+  const humanSubmitted = playerIds.filter((id) => humanPlayerIds.has(id)).length;
 
   await broadcast(roomChannel(upperCode), "SUBMIT_PROGRESS", {
-    submitted, total: aliveCount ?? 0, playerIds,
+    submitted, total: aliveCount, playerIds,
   });
 
-  // 인간 전원 제출 → 봇 자동 제출 후 즉시 VOTING 전이
+  // 인간 전원 제출 → 봇 자동 제출과 phase 전이를 동시에 진행
   if (humanCount > 0 && humanSubmitted >= humanCount) {
-    // 봇 자동 제출
-    const { data: botPlayers } = await db
-      .from("players").select("id")
-      .eq("room_id", room.id).eq("alive", true)
-      .like("session_id", "bot:%") as { data: Array<{ id: string }> | null };
-
-    if (botPlayers && botPlayers.length > 0) {
-      const existing = new Set(playerIds);
-      const pending = botPlayers.filter((b) => !existing.has(b.id));
-      if (pending.length > 0) {
-        // AI로 이미지 보고 제목 생성
-        const imageUrl = await getRoomImageUrl(room.id, room.current_image);
-        const titles = await Promise.all(pending.map(() => generateBotTitle(imageUrl)));
-        await db.from("submissions").insert(
-          pending.map((b, i) => ({
-            room_id: room.id, round: room.round, player_id: b.id, title: titles[i],
-          }))
-        );
-      }
-    }
+    const existing = new Set(playerIds);
+    const pendingBots = botPlayers.filter((b) => !existing.has(b.id));
 
     const deadline = new Date(Date.now() + 30000).toISOString();
-    const { data: updated } = await db
-      .from("rooms")
-      .update({ phase: "VOTING", deadline, updated_at: new Date().toISOString() })
-      .eq("code", upperCode).eq("phase", "WRITING").eq("round", room.round)
-      .select("id").maybeSingle() as { data: { id: string } | null };
 
-    if (updated) {
-      const { data: subs } = await db
-        .from("submissions").select("id,title")
-        .eq("room_id", room.id).eq("round", room.round) as { data: Array<{ id: string; title: string }> | null };
+    const [updateRes, botSubs] = await Promise.all([
+      db.from("rooms")
+        .update({ phase: "VOTING", deadline, updated_at: new Date().toISOString() })
+        .eq("code", upperCode).eq("phase", "WRITING").eq("round", room.round)
+        .select("id").maybeSingle() as unknown as Promise<{ data: { id: string } | null }>,
+      (async (): Promise<SubRow[]> => {
+        if (pendingBots.length === 0) return [];
+        const imageUrl = await getRoomImageUrl(room.id, room.current_image);
+        const titles = await Promise.all(pendingBots.map(() => generateBotTitle(imageUrl)));
+        const { data: inserted } = await db.from("submissions").insert(
+          pendingBots.map((b, i) => ({
+            room_id: room.id, round: room.round, player_id: b.id, title: titles[i],
+          }))
+        ).select("id,title,player_id") as { data: SubRow[] | null };
+        return inserted ?? [];
+      })(),
+    ]);
 
+    if (updateRes.data) {
+      const finalSubs = [...allSubs, ...botSubs];
       await broadcast(roomChannel(upperCode), "PHASE_CHANGED", { phase: "VOTING", round: room.round, deadline });
-      await broadcast(roomChannel(upperCode), "SUBMISSIONS_REVEALED", { submissions: shuffle(subs ?? []) });
+      await broadcast(roomChannel(upperCode), "SUBMISSIONS_REVEALED", {
+        submissions: shuffle(finalSubs.map((s) => ({ id: s.id, title: s.title }))),
+      });
     }
   }
 

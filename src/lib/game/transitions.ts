@@ -80,38 +80,53 @@ export async function computeAndBroadcastResult(code: string, round: number) {
   }
   if (!room) return;
 
-  // Submissions + votes
-  const { data: subs } = await db
-    .from("submissions").select("id,title,player_id")
-    .eq("room_id", room.id).eq("round", round) as { data: SubmissionRow[] | null };
-
-  const { data: votes } = await db
-    .from("votes").select("submission_id")
-    .eq("room_id", room.id).eq("round", round) as { data: VoteRow[] | null };
+  // Submissions + votes — 서로 독립적이라 병렬로
+  const [{ data: subs }, { data: votes }] = await Promise.all([
+    db.from("submissions").select("id,title,player_id")
+      .eq("room_id", room.id).eq("round", round) as unknown as Promise<{ data: SubmissionRow[] | null }>,
+    db.from("votes").select("submission_id")
+      .eq("room_id", room.id).eq("round", round) as unknown as Promise<{ data: VoteRow[] | null }>,
+  ]);
 
   const voteCounts: Record<string, number> = {};
   for (const v of votes ?? []) {
     voteCounts[v.submission_id] = (voteCounts[v.submission_id] ?? 0) + 1;
   }
 
-  // Nicknames
   const playerIds = [...new Set((subs ?? []).map((s) => s.player_id))];
-  const { data: nickPlayers } = playerIds.length > 0
-    ? await db.from("players").select("id,nickname").in("id", playerIds) as { data: Array<{ id: string; nickname: string }> | null }
-    : { data: [] };
-  const nickMap: Record<string, string> = {};
-  for (const p of nickPlayers ?? []) nickMap[p.id] = p.nickname;
 
-  // Image URL for AI scoring
-  let aiImageUrl: string | null = null;
-  if (room.current_image) {
-    const { data: imgData } = await db.from("images").select("url")
-      .eq("id", room.current_image).single() as { data: { url: string } | null };
-    aiImageUrl = imgData?.url ?? null;
-  }
-
-  // AI scoring (async, falls back to 0.5 neutral on failure)
-  const aiScoreMap = await computeAIScores(process.env.OPENAI_API_KEY ?? null, aiImageUrl, subs ?? []);
+  // 닉네임 조회 / AI 스코어링 / 생존자 조회 — 서로 독립적이라 병렬로
+  const [nickMap, aiScoreMap, alivePlayersResult] = await Promise.all([
+    (async () => {
+      const { data: nickPlayers } = playerIds.length > 0
+        ? await db.from("players").select("id,nickname").in("id", playerIds) as { data: Array<{ id: string; nickname: string }> | null }
+        : { data: [] };
+      const map: Record<string, string> = {};
+      for (const p of nickPlayers ?? []) map[p.id] = p.nickname;
+      return map;
+    })(),
+    (async () => {
+      let aiImageUrl: string | null = null;
+      if (room.current_image) {
+        const { data: imgData } = await db.from("images").select("url")
+          .eq("id", room.current_image).single() as { data: { url: string } | null };
+        aiImageUrl = imgData?.url ?? null;
+      }
+      // AI scoring (async, falls back to 0.5 neutral on failure/timeout)
+      return computeAIScores(process.env.OPENAI_API_KEY ?? null, aiImageUrl, subs ?? []);
+    })(),
+    (async () => {
+      const { data: initialAlivePlayers, error: aliveErr } = await db
+        .from("players").select("id,lives,team")
+        .eq("room_id", room.id).eq("alive", true) as { data: Array<{ id: string; lives: number; team: string | null }> | null; error: unknown };
+      if (isMissingCol(aliveErr)) {
+        const fb = await db.from("players").select("id,lives")
+          .eq("room_id", room.id).eq("alive", true) as { data: Array<{ id: string; lives: number }> | null; error: unknown };
+        return (fb.data ?? []).map((p) => ({ ...p, team: null as string | null }));
+      }
+      return initialAlivePlayers ?? [];
+    })(),
+  ]);
 
   // Build scored submissions: finalScore = userVotePct * 0.7 + aiScore * 0.3
   const totalUserVotes = (votes ?? []).length;
@@ -142,17 +157,7 @@ export async function computeAndBroadcastResult(code: string, round: number) {
       aiScore: s.aiScore,
     }));
 
-  // Alive players
-  const { data: initialAlivePlayers, error: aliveErr } = await db
-    .from("players").select("id,lives,team")
-    .eq("room_id", room.id).eq("alive", true) as { data: Array<{ id: string; lives: number; team: string | null }> | null; error: unknown };
-
-  let alivePlayers = initialAlivePlayers;
-  if (isMissingCol(aliveErr)) {
-    const fb = await db.from("players").select("id,lives")
-      .eq("room_id", room.id).eq("alive", true) as { data: Array<{ id: string; lives: number }> | null; error: unknown };
-    alivePlayers = (fb.data ?? []).map((p) => ({ ...p, team: null }));
-  }
+  const alivePlayers = alivePlayersResult;
 
   const submittedIds = new Set((subs ?? []).map((s) => s.player_id));
   const nonSubmitterIds = (alivePlayers ?? []).filter((p) => !submittedIds.has(p.id)).map((p) => p.id);
@@ -201,13 +206,14 @@ export async function computeAndBroadcastResult(code: string, round: number) {
     : [...new Set([...loserPlayerIds, ...nonSubmitterIds])];
   const eliminatedPlayerIds: string[] = [];
 
-  for (const playerId of toDeduct) {
+  // 각 플레이어 행이 독립적이므로 순차 대신 병렬로 업데이트
+  await Promise.all(toDeduct.map((playerId) => {
     const player = (alivePlayers ?? []).find((p) => p.id === playerId);
-    if (!player) continue;
+    if (!player) return null;
     const newLives = player.lives - 1;
-    await db.from("players").update({ lives: newLives, alive: newLives > 0 }).eq("id", playerId);
     if (newLives <= 0) eliminatedPlayerIds.push(playerId);
-  }
+    return db.from("players").update({ lives: newLives, alive: newLives > 0 }).eq("id", playerId);
+  }));
 
   const { data: updatedPlayers } = await db
     .from("players").select("id,nickname,lives,alive,connected,team")
