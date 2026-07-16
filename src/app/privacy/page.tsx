@@ -134,7 +134,11 @@ export default function PrivacyPage() {
         <section>
           <h2 className="font-serif text-2xl text-foreground">9. 문의</h2>
           <p className="mt-2 text-muted-foreground">
-            개인정보 관련 문의는 아래 이메일로 연락해주세요.
+            개인정보 관련 문의는 아래 이메일로 연락해주세요. (
+            <Link href="/contact" className="font-bold text-primary hover:underline">
+              문의하기 페이지
+            </Link>
+            에서도 안내하고 있습니다.)
           </p>
           <p className="mt-2 font-bold text-foreground">{CONTACT_EMAIL}</p>
         </section>

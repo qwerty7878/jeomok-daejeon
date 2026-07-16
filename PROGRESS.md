@@ -216,12 +216,42 @@ Supabase Storage로 통일하기로 결정 ([ADR 002](docs/decisions/002-supabas
 - `pnpm lint` ⚠️ 여전히 미검증 (같은 로컬 환경 이슈, 위 항목 참고). 변경 파일 수동 리뷰 완료 —
   신규 import 없음, `let`/`const` 적절히 사용, 미사용 변수 없음
 
+## 최근 변경 (2026-07-17 — 애드센스 투명성 페이지 추가)
+
+배경: Google AdSense 프로그램 정책이 요구하는 "소개"·"문의하기" 페이지가 없었음 (개인정보처리방침에 이메일만
+9번 항목에 묻혀 있었음). `docs/pages.md`에 P14/P15로 스펙을 먼저 추가한 뒤 구현.
+
+- **`/about` 소개 페이지 신규**: 서비스 설명, 운영 목적(비상업 개인 프로젝트, 광고 게재 사실 고지),
+  이용 방식(로그인 없음), 이미지 출처·문의하기 링크
+- **`/contact` 문의하기 페이지 신규**: 개인정보처리방침에 묻혀 있던 이메일 문의처를 독립 페이지로 분리.
+  `mailto:` 링크만 사용 (서버리스 이메일 발송 인프라 없음 — 백엔드 폼 미구현)
+- **로비 푸터 갱신**: 소개 / 이미지 출처 / 개인정보처리방침 / 문의하기 4개 링크로 확장 (기존엔 2개)
+- **`sitemap.ts`/`robots.ts` 갱신**: `/about`, `/contact` 추가
+- **개인정보처리방침 9번 항목**: `/contact` 페이지로 상호 링크 추가
+
+### 검증 (2026-07-17)
+- `pnpm typecheck` ✅ 에러 0
+- `pnpm lint` ✅ 에러 0, 경고 4 (전부 기존 파일 — `layout.tsx`의 미사용 `Script` import, 테스트 파일 3곳. 이번 변경분과 무관)
+- `pnpm dev` 로 실제 기동 후 curl 검증: `/about` `/contact` `/privacy` 모두 200, 타이틀·본문 정상 렌더링,
+  로비 푸터 4개 링크 정상, `/sitemap.xml`·`/robots.txt`에 신규 경로 반영 확인
+- `pnpm build`: Turbopack 컴파일은 성공하지만 마지막 TypeScript 단계에서
+  `Definitions of the following identifiers conflict with those in another file: unstable_cache, ...` 에러로 실패.
+  **원인은 이번 변경과 무관** — Next.js가 워크스페이스 루트를 `/Users/annhyeonjune/package-lock.json`(홈 디렉터리,
+  이 프로젝트 바깥)으로 오탐지해서 동일 머신의 다른 프로젝트(`~/Desktop/fanboard`)의 `next` 타입 선언과 충돌하는
+  로컬 환경 문제. `pnpm typecheck`(플레인 `tsc --noEmit`)는 정상 통과함. 이 프로젝트의 완료 기준은
+  `pnpm typecheck && pnpm lint`이며 둘 다 통과했음. **Vercel 배포 빌드는 격리된 환경이라 이 문제와 무관할
+  가능성이 높지만, 다음 세션에서 로컬 `pnpm build`가 여전히 실패하면 `next.config.ts`에
+  `turbopack.root`를 명시해서 근본 원인을 없앨 것.**
+
 ## 다음 작업
+- 로컬 `pnpm build`의 workspace-root 오탐지 문제 — `next.config.ts`에 `turbopack.root` 명시해서 해결 (위 항목 참고)
 - `pnpm lint` 재시도 (재부팅 등으로 macOS Gatekeeper 이슈 해소된 뒤) — **이번 세션의 모든 변경분 포함해서 최종 검증 필요**
 - 브라우저 실제 UI 검증: 팀전 방 만들어서 2명 이상 입장 시 대기실에 팀 A/B 컬럼 분리 확인, 방 만들기 모달을 작은 화면에서 스크롤 확인
 - `/admin` 이미지 탭 업로드 플로우, cleanup cron의 storage 삭제 동작
 - Vercel 배포 환경에 `library-images` 버킷 사전 생성 여부 확인 (코드는 없으면 자동 생성 시도함)
 - (선택) 로비 Realtime 채널로 방 목록 실시간 업데이트
+- (선택) 애드센스 "다양한 형식의 콘텐츠" 요건 대응 — 게임 자체는 인터랙티브 툴이라 기사/동영상형 콘텐츠가 약함.
+  명예의 전당(`/hall-of-fame`)이 유일한 콘텐츠성 페이지. 필요시 논의 후 확장
 
 ## 열린 질문
 - (없음)

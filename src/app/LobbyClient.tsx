@@ -192,11 +192,17 @@ export function LobbyClient({ initialRooms }: { initialRooms: RoomItem[] }) {
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-4 py-5 text-sm text-muted-foreground sm:flex-row">
           <span className="font-bold text-secondary">제목대전</span>
           <div className="flex items-center gap-4">
+            <Link href="/about" className="transition-colors hover:text-foreground">
+              소개
+            </Link>
             <Link href="/credits" className="transition-colors hover:text-foreground">
               이미지 출처
             </Link>
             <Link href="/privacy" className="transition-colors hover:text-foreground">
               개인정보처리방침
+            </Link>
+            <Link href="/contact" className="transition-colors hover:text-foreground">
+              문의하기
             </Link>
             <Link href="/admin" className="opacity-0 hover:opacity-100 transition-opacity text-[10px]">
               ·
